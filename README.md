@@ -1,1 +1,1 @@
-# distant_speech_recognition
+# Distant speech recognition toolkit
