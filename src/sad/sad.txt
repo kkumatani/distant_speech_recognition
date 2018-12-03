@@ -1,0 +1,6 @@
+>>> samp = SampleFeaturePtr()
+>>> sad = SpeechActivityDetectorPtr(samp)
+>>> frameX = 0
+>>> for sp in sad:
+>>>   print 'Frame ', frameX, ' ', sp
+
