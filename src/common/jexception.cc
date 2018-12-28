@@ -80,8 +80,3 @@ const char* j_error::make_msg(const char* what_arg, va_list& ap) {
     }
   }
 };
-
-jiterator_error::jiterator_error(const char* what_arg, ...) { 
-  BUILDMSG(what_arg); 
-  code = JITERATOR;
-}

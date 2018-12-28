@@ -15,29 +15,72 @@ using namespace std;
 #endif
 %}
 
+%include "exception.i"
+
 %exception {
   //jpython_error *pe = NULL;
   try {
     $action
-  } catch(j_error& e) {
-    switch (e.getCode()) {
-    case JITERATOR:
-      PyErr_SetString(PyExc_StopIteration, "");
-      return NULL;
-    case JIO:
-      PyErr_SetString(PyExc_IOError, e.what());
-      return NULL;
-    case JPYTHON:
-      //pe = static_cast<jpython_error*>(&e);
-      //PyErr_Restore(pe->getType(), pe->getValue(), pe->getTrace());
-      return NULL;
-    default:
-      break;
-    }
+  }
+  catch(jiterator_error& e) {
+    //PyErr_SetNone(PyExc_StopIteration);
+    PyErr_SetString(PyExc_StopIteration, "stop iteration");
+    return NULL;
+  }
+  catch(jallocation_error& e) {
+    PyErr_SetString(PyExc_MemoryError, e.what());
+    return NULL;
+  }
+  catch(jarithmetic_error& e) {
+    PyErr_SetString(PyExc_ArithmeticError, e.what());
+    return NULL;
+  }
+  catch(jnumeric_error& e) {
+    PyErr_SetString(PyExc_FloatingPointError, e.what());
+    return NULL;
+  }
+  catch(jindex_error& e) {
+    PyErr_SetString(PyExc_IndexError, e.what());
+    return NULL;
+  }
+  catch(jio_error& e) {
+    PyErr_SetString(PyExc_IOError, e.what());
+    return NULL;
+  }
+  catch(jkey_error& e) {
+    PyErr_SetString(PyExc_KeyError, e.what());
+    return NULL;
+  }
+  catch(jparameter_error& e) {
+    PyErr_SetString(PyExc_ValueError, e.what());
+    return NULL;
+  }
+  catch(jparse_error& e) {
+    PyErr_SetString(PyExc_SyntaxError, e.what());
+    return NULL;
+  }
+  catch(jtype_error& e) {
+    PyErr_SetString(PyExc_TypeError, e.what());
+    return NULL;
+  }
+  catch(jconsistency_error& e) {
     PyErr_SetString(PyExc_Exception, e.what());
     return NULL;
-  } catch (...) {
-    PyErr_SetString(PyExc_Exception, "unknown error");
+  }
+  catch(jinitialization_error& e) {
+    PyErr_SetString(PyExc_Exception, e.what());
+    return NULL;
+  }
+  catch(jdimension_error& e) {
+    PyErr_SetString(PyExc_Exception, e.what());
+    return NULL;
+    }
+  catch(j_error& e) {
+    PyErr_SetString(PyExc_Exception, e.what());
+    return NULL;
+  }
+  catch (...) {
+    PyErr_SetString(PyExc_Exception, "Unknown error");
     return NULL;
   };
 }

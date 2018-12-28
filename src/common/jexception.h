@@ -114,7 +114,10 @@ class jio_error : public j_error {
 
 class jiterator_error : public j_error {
  public:
-  jiterator_error(const char* what_arg, ...);
+  jiterator_error(const char* what_arg, ...) { 
+    BUILDMSG(what_arg);
+    code = JITERATOR;
+  }
 };
 
 class jkey_error : public j_error {
