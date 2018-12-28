@@ -148,7 +148,9 @@ public:
   ~AnalysisOversampledDFTDesign();
 
   // design analysis prototype
-  const gsl_vector* design(double tolerance = 1.0E-07);
+  // tolerance for double precision: 2.2204e-16
+  // tolerance for single precision: 1.1921e-07
+  const gsl_vector* design(double tolerance = 2.2204e-16);
 
   // calculate distortion measures
   const gsl_vector* calcError(bool doPrint = true);
@@ -178,12 +180,14 @@ public:
   ~SynthesisOversampledDFTDesign();
 
   // design synthesis prototype
-  const gsl_vector* design(double tolerance = 1.0E-07);
+  // tolerance for double precision: 2.2204e-16
+  // tolerance for single precision: 1.1921e-07
+  const gsl_vector* design(double tolerance = 2.2204e-16);
 
   // calculate distortion measures
   virtual const gsl_vector* calcError(bool doPrint = true);
 
-  void save(const String& fileName) { PrototypeDesignBase::save(fileName); } 
+  void save(const String& fileName) { PrototypeDesignBase::save(fileName); }
 
 protected:
   void _calculateEfP();
@@ -193,10 +197,6 @@ protected:
 
         gsl_vector*				_h;
   const double					_v;
-
-  gsl_vector*					_singularVals;
-  gsl_vector*					_scratch;
-  gsl_vector*					_workSpace;
 
   gsl_matrix*					_E;
   gsl_matrix*					_P;

@@ -259,7 +259,7 @@ void PrototypeDesignBase::_calculateC()
       if ( ( n - m ) == 0 )
 	Cmn = factor / _D;
       else
-	Cmn = factor * sin(M_PI * ( n - m ) / _D) / (M_PI * _D * ( n - m )); /* See de Haan's thesis not the IEEE paper*/
+	Cmn = factor * sin(M_PI * ( n - m ) / _D) / (M_PI * ( n - m ));
 
       gsl_matrix_set(_C, m, n, Cmn);
     }
@@ -287,6 +287,7 @@ void PrototypeDesignBase::_svd(gsl_matrix* U, gsl_matrix* V, gsl_vector* S, gsl_
     gsl_matrix_free(UT);
   } else {
     gsl_linalg_SV_decomp(U, V, S, workSpace);
+    //gsl_linalg_SV_decomp_jacobi(U, V, S);
   }
 }
 
@@ -615,7 +616,6 @@ AnalysisOversampledDFTDesign(int M, int m, int r, double wp, int tau)
   : PrototypeDesignBase(M, m, r, wp, tau),
     _error(gsl_vector_calloc(3))
 {
-  printf("Done\n");  fflush(stdout);
 }
 
 AnalysisOversampledDFTDesign::~AnalysisOversampledDFTDesign()
@@ -677,7 +677,6 @@ const gsl_vector* AnalysisOversampledDFTDesign::calcError(bool doPrint)
 
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_linalg.h>
-
 void AnalysisOversampledDFTDesign::_solve(double tolerance)
 {
   printf("Solving for analysis prototype 'h' ... ");  fflush(stdout);
@@ -685,18 +684,19 @@ void AnalysisOversampledDFTDesign::_solve(double tolerance)
   // use SVD to solve for the filter prototype
   gsl_matrix_add(_A, _C);
   _svd(_A, _C, _singularVals, _workSpace);
-  gsl_blas_dgemv(CblasTrans, 1.0, _A, _b, 0.0, _scratch);
-  double largestValue = gsl_vector_get(_singularVals, 0);
+  // setting the singular values below the threshold to zero
+  const double largestValue = gsl_vector_get(_singularVals, 0);
+  const double threshold = _L * largestValue * tolerance;
   for (int n = 0; n < _L; n++) {
-    double evalue  = gsl_vector_get(_singularVals, n);
-    if ((evalue / largestValue) >= tolerance) {
-      gsl_vector_set(_scratch, n, gsl_vector_get(_scratch, n) / evalue);
+    const double evalue = gsl_vector_get(_singularVals, n);
+    if ( evalue > threshold ) {
+      gsl_vector_set(_scratch, n, evalue);
     } else {
-      printf("h[%d] = 0 because of ( %e / %e ) < %e\n", n, evalue, largestValue, tolerance);
+      printf("%d-th singular value is set to 0 because of %e < %e\n", n, evalue, threshold);
       gsl_vector_set(_scratch, n, 0.0);
     }
   }
-  gsl_blas_dgemv(CblasNoTrans, 1.0, _C, _scratch, 0.0, _prototype);
+  gsl_linalg_SV_solve(_A, _C, _scratch, _b, _prototype);
 
   printf("Done.\n");  fflush(stdout);
 }
@@ -705,7 +705,7 @@ double AnalysisOversampledDFTDesign::_passbandResponseError()
 {
   double res1, res2;
   gsl_vector *Ah;
-  
+
   // A * h
   Ah = gsl_vector_calloc( _prototype->size );
   gsl_vector_set_zero(Ah);
@@ -836,29 +836,31 @@ void SynthesisOversampledDFTDesign::_calculateEfP()
     for (int n = 0; n < _L; n++) {
 
       for (int k = 0; k <= (2*_m) ; k++) {
-	
-	if (k*_M-m < 0 || k*_M-m > _L - 1 || k*_M-n < 0 || k*_M-n > _L - 1) continue;
-	gsl_matrix_set(_E, m, n, gsl_matrix_get(_E, m, n) +
-		       gsl_vector_get(_h, (k*_M-m)) * gsl_vector_get(_h, (k*_M-n)));
+        const int kM = k * _M;
+        if ((kM - m) >= 0 && (kM - m) < _L && (kM - n) >= 0 && (kM - n) < _L ) {
+          gsl_matrix_set(_E, m, n, gsl_matrix_get(_E, m, n) +
+                         gsl_vector_get(_h, (kM-m)) * gsl_vector_get(_h, (kM-n)));
+        }
       }
 
       int factor = ((m-n) % _D == 0) ? _D - 1 : -1;
       for (int k = -_L; k <= _L; k++) {
-	if (k+n < 0 || k+m < 0 || k+n > _L - 1 || k+m > _L - 1) continue;
-
-	gsl_matrix_set(_P, m, n, gsl_matrix_get(_P, m, n) +
-		       gsl_vector_get(_h, k+n) * gsl_vector_get(_h, k+m) * factor);
+        if ((k + n) >= 0 && (k + m) >= 0 && (k + n) < _L && (k + m) < _L ) {
+          gsl_matrix_set(_P, m, n, gsl_matrix_get(_P, m, n) +
+                         gsl_vector_get(_h, k+n) * gsl_vector_get(_h, k+m) * factor);
+        }
       }
     }
 
-    if (tauT - m < 0 || tauT - m > _L-1) continue;
-    gsl_vector_set(_f, m, gsl_vector_get(_h, tauT - m));
+    if ((tauT - m) >=0 && (tauT - m) < _L){
+      gsl_vector_set(_f, m, gsl_vector_get(_h, tauT - m));
+    }
   }
 
   gsl_matrix_scale(_E, (double) (_M / _D) * (_M / _D));
-  gsl_vector_scale(_f, (double) (_M / ( PI * _D ) ));
+  gsl_vector_scale(_f, (double) (_M / _D )); // (_M / ( PI * _D ) )); The de Haan's paper has PI in the divisor but it should be removed.
   gsl_matrix_scale(_P, (double) _M / ((double) _D   * (double) _D));
-  
+
   gsl_matrix_memcpy(_cpE, _E);
   gsl_vector_memcpy(_cpf, _f);
   gsl_matrix_memcpy(_cpP, _P);
@@ -874,25 +876,26 @@ void SynthesisOversampledDFTDesign::_solve(double tolerance)
   gsl_matrix_scale(_P, _v);
   gsl_matrix_add(_E, _P);
   _svd(_E, _P, _singularVals, _workSpace);
-  gsl_blas_dgemv(CblasTrans, 1.0, _E, _f, 0.0, _scratch);
-  double largestValue = gsl_vector_get(_singularVals, 0);
+  // setting the singular values below the threshold to zero
+  const double largestValue = gsl_vector_get(_singularVals, 0);
+  const double threshold = _L * largestValue * tolerance;
   for (int n = 0; n < _L; n++) {
-    double evalue  = gsl_vector_get(_singularVals, n);
-    if ((evalue / largestValue) >= tolerance) {
-      gsl_vector_set(_scratch, n, gsl_vector_get(_scratch, n) / evalue);
+    const double evalue = gsl_vector_get(_singularVals, n);
+    if ( evalue > threshold ) {
+      gsl_vector_set(_scratch, n, evalue);
     } else {
-      printf("g[%d] = 0 because of ( %e / %e ) < %e\n", n, evalue, largestValue, tolerance);
+      printf("%d-th singular value is set to 0 because of %e < %e\n", n, evalue, threshold);
       gsl_vector_set(_scratch, n, 0.0);
     }
   }
-  gsl_blas_dgemv(CblasNoTrans, 1.0, _P, _scratch, 0.0, _prototype);
+  gsl_linalg_SV_solve(_E, _P, _scratch, _f, _prototype);
 
   printf("Done.\n");  fflush(stdout);
 }
 
 double SynthesisOversampledDFTDesign::_totalResponseError()
 {
-  
+
   double res1, res2;
   gsl_vector* Eg;
 
@@ -973,7 +976,7 @@ void AnalysisNyquistMDesign::_solve(double tolerance)
 // Create the constraint matrix
 void AnalysisNyquistMDesign::_calculateFd()
 {
-  gsl_matrix_set_zero(_F);  gsl_vector_set_zero(_d);  
+  gsl_matrix_set_zero(_F);  gsl_vector_set_zero(_d);
   for (int n = 0; n < _m; n++) {
     gsl_matrix_set(_F, n * _M, n, 1.0);
     if (n == _m / 2) gsl_vector_set(_d, n, 1.0 / _M);
@@ -1038,7 +1041,7 @@ const gsl_vector* SynthesisNyquistMDesign::calcError(bool doPrint)
 double SynthesisNyquistMDesign::_passbandResponseError()
 {
   double res1, res2;
-  
+
   // A * h
   gsl_vector* Ah = gsl_vector_calloc( _prototype->size );
   gsl_vector_set_zero(Ah);

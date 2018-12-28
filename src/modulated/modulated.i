@@ -65,9 +65,9 @@ class NormalFFTAnalysisBankPtr : public VectorComplexFeatureStreamPtr {
  public:
   %extend {
     NormalFFTAnalysisBankPtr(VectorFloatFeatureStreamPtr& samp,
-			     unsigned fftLen,  unsigned r = 1, unsigned windowType = 1,
+			     unsigned fftLen,  unsigned r = 1, unsigned window_type = 1,
 			     const String& nm = "NormalFFTAnalysisBank") {
-      return new NormalFFTAnalysisBankPtr(new NormalFFTAnalysisBank( samp, fftLen, r, windowType, nm ));
+      return new NormalFFTAnalysisBankPtr(new NormalFFTAnalysisBank( samp, fftLen, r, window_type, nm ));
     }
 
      NormalFFTAnalysisBankPtr __iter__() {
@@ -115,9 +115,9 @@ class OverSampledDFTAnalysisBankPtr : public VectorComplexFeatureStreamPtr {
  public:
   %extend {
     OverSampledDFTAnalysisBankPtr(VectorFloatFeatureStreamPtr& samp,
-				  gsl_vector* prototype, unsigned M = 256, unsigned m = 3, unsigned r = 0, unsigned delayCompensationType =0,
-				  const String& nm = "OverSampledDFTAnalysisBankFloat") {
-      return new OverSampledDFTAnalysisBankPtr(new OverSampledDFTAnalysisBank(samp, prototype, M, m, r, delayCompensationType, nm));
+                                  gsl_vector* prototype, unsigned M = 256, unsigned m = 3, unsigned r = 0, unsigned delay_compensation_type = 0,
+                                  const String& nm = "OverSampledDFTAnalysisBankFloat") {
+      return new OverSampledDFTAnalysisBankPtr(new OverSampledDFTAnalysisBank(samp, prototype, M, m, r, delay_compensation_type, nm));
     }
 
     OverSampledDFTAnalysisBankPtr __iter__() {
@@ -169,9 +169,9 @@ public:
   %extend {
     OverSampledDFTSynthesisBankPtr(VectorComplexFeatureStreamPtr& samp,
 				   gsl_vector* prototype, unsigned M, unsigned m, unsigned r = 0,
-				   unsigned delayCompensationType = 0, int gainFactor = 1,
+				   unsigned delay_compensation_type = 0, int gain_factor = 1,
 				   const String& nm = "OverSampledDFTSynthesisBank") {
-      return new OverSampledDFTSynthesisBankPtr(new OverSampledDFTSynthesisBank(samp, prototype, M, m, r, delayCompensationType, gainFactor, nm));
+      return new OverSampledDFTSynthesisBankPtr(new OverSampledDFTSynthesisBank(samp, prototype, M, m, r, delay_compensation_type, gain_factor, nm));
     }
 
     OverSampledDFTSynthesisBankPtr __iter__() {
@@ -181,7 +181,6 @@ public:
 
   OverSampledDFTSynthesisBank* operator->();
 };
-
 
 // ----- definition for class `PerfectReconstructionFFTAnalysisBank' -----
 //
@@ -341,10 +340,12 @@ class AnalysisOversampledDFTDesign {
   %feature("kwargs") save;
   %feature("kwargs") calcError;
 public:
-  AnalysisOversampledDFTDesign(unsigned M = 512, unsigned m = 2, unsigned r = 1, unsigned wp = 512, int tau_h = -1 );
+  AnalysisOversampledDFTDesign(unsigned M = 256, unsigned m = 4, unsigned r = 1, double wp = 1.0, int tau_h = -1 );
   ~AnalysisOversampledDFTDesign();
   // design prototype
-  const gsl_vector* design(double tolerance = 1.0E-07);
+  // tolerance for double precision: 2.2204e-16
+  // tolerance for single precision: 1.1921e-07
+  const gsl_vector* design(double tolerance = 2.2204e-16);
   void save(const String& fileName);
   // calculate distortion measures
   const gsl_vector* calcError(bool doPrint = true);
@@ -354,7 +355,7 @@ class AnalysisOversampledDFTDesignPtr {
   %feature("kwargs") AnalysisOversampledDFTDesignPtr;
 public:
   %extend {
-    AnalysisOversampledDFTDesignPtr(unsigned M = 512, unsigned m = 2, unsigned r = 1, unsigned wp = 512, int tau_h = -1 ) {
+    AnalysisOversampledDFTDesignPtr(unsigned M = 256, unsigned m = 4, unsigned r = 1, double wp = 1.0, int tau_h = -1 ) {
       return new AnalysisOversampledDFTDesignPtr(new AnalysisOversampledDFTDesign(M, m, r, wp, tau_h ));
     }
   }
@@ -371,11 +372,12 @@ class SynthesisOversampledDFTDesign {
   %feature("kwargs") save;
   %feature("kwargs") calcError;
 public:
-  SynthesisOversampledDFTDesign(const gsl_vector* h, unsigned M = 512, unsigned m = 2, unsigned r = 1,
-				double v = 0.01, unsigned wp = 512, int tau_T = -1 );
+  SynthesisOversampledDFTDesign(const gsl_vector* h, unsigned M = 256, unsigned m = 4, unsigned r = 1, double v = 1.0, double wp = 1.0, int tau_T = -1 );
   ~SynthesisOversampledDFTDesign();
   // design prototype
-  const gsl_vector* design(double tolerance = 1.0E-07);
+  // tolerance for double precision: 2.2204e-16
+  // tolerance for single precision: 1.1921e-07
+  const gsl_vector* design(double tolerance = 2.2204e-16);
   void save(const String& fileName);
   // calculate distortion measures
   const gsl_vector* calcError(bool doPrint = true);
@@ -385,8 +387,7 @@ class SynthesisOversampledDFTDesignPtr {
   %feature("kwargs") SynthesisOversampledDFTDesignPtr;
 public:
   %extend {
-    SynthesisOversampledDFTDesignPtr(const gsl_vector* h, unsigned M = 512, unsigned m = 2, unsigned r = 1,
-				     double v = 0.01, unsigned wp = 512, int tau_T = -1 ) {
+    SynthesisOversampledDFTDesignPtr(const gsl_vector* h, unsigned M = 256, unsigned m = 4, unsigned r = 1, double v = 1.0, double wp = 1.0, int tau_T = -1 ) {
       return new SynthesisOversampledDFTDesignPtr(new SynthesisOversampledDFTDesign(h, M, m, r, v, wp, tau_T));
     }
   }
