@@ -215,7 +215,7 @@ for m = 1:rowN
 end
  
 C0 = zeros( rowN, 1);
-C0(x_m) =  1.0 / fftLen; % C0(x_m) = h(md+1);
+C0(x_m) =  D * 1.0 / fftLen; % C0(x_m) = h(md+1);
 
 sizeP = size(P,1);
 rank_P = rank(P);
@@ -239,7 +239,7 @@ else
   for i=(sizeP-rowN+1):sizeP
     fprintf( '%e ', WP(i,i));
   end
-  fprintf( '\n');  
+  fprintf( '\n');
   pnullP = VP(:,(sizeP-rowN+1):sizeP);
   y = ( H * pnullP )\ C0;
   g = pnullP * y;
@@ -249,9 +249,8 @@ gamma = g' * E * g - 2 * g' * f + 1;
 epsir = g' * P * g;
 
 fprintf('\n');
-fprintf('a = %e, b = %e, e = %e, g = %e\n', 10*log10(alpha), 10*log10(beta/(D*D)), 10*log10(epsir), 10*log10(gamma));
-
-fprintf('NyquistFB %d %d %d %f %f, %f %f %f\n', fftLen, x_m, r, w, 10*log10(alpha), 10*log10(beta/(D*D)), 10*log10(epsir), 10*log10(gamma));
+fprintf('b=%e e=%e\n', 10*log10(beta), 10*log10(epsir));
+fprintf('NyquistFB M=%d m=%d r=%d\n', fftLen, x_m, r);
 
 %-- save prototypes to disk ----------------------------------------------------
 outdirname = sprintf('prototype.ny');
