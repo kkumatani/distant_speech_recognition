@@ -1,83 +1,112 @@
 #!/usr/bin/python
-#
-# 			          Millenium
-#                     Automatic Speech Recognition System
-#                                   (asr)
-#
-#   Module:  recognize.py
-#   Purpose: Recognize and dump phone lattices on 'wsj0' data.
-#   Date:    May 12, 2007
-#   Author:  John McDonough
+"""
+Design the de Haan filter prototypes.
 
+Reference:
+Jan Mark De Haan, Nedelko Grbic, Ingvar Claesson, Sven E Nordholm, "Filter bank design for subband adaptive microphone arrays", IEEE TSAP 2003.
+
+.. moduleauthor:: John McDonough, Kenichi Kumatani <k_kumatani@ieee.org>
+"""
 import os.path
-import Numeric
 import pickle
 import sys
-from math import *
+import numpy
 
-from btk.modulated import *
+from btk20.modulated import *
 
-def designSynthesisFilter( M, m, r, v, wpFactor, h, synthesisFileName ):
+def design_de_haan_analysis_filter( M, m, r, wpW):
+    """
+    Generate an analysis filter prototype
 
-    if os.path.exists( synthesisFileName ):
-        print '%s exists' %( synthesisFileName )
-    else:
-        # Create and write synthesis prototype
-        synthesis = SynthesisOversampledDFTDesignPtr(h, M = M, m = m, r = r, v = v, wpFactor = wpFactor)
-        g = synthesis.design()
-        err = synthesis.calcError()
-        print 'g = '
-        print g
-        fp = open(synthesisFileName, 'w')
-        pickle.dump(g, fp, True)
-        fp.close()
+    :param M: number of subbands
+    :type M: integer
+    :param m: Filter length factor
+    :type m: integer
+    :param r: exponential decimation factor
+    :type r: integer
+    :param wpW: cut-off frequency factor
+    :type wpW: float
+    :returns: coefficients of analysis filter prototype
+    """
+    analysis = AnalysisOversampledDFTDesignPtr(M = M,  m = m, r = r, wp = wpW)
+    h = analysis.design()
+    (alpha, beta, sum_alpha_beta) = analysis.calcError()
+
+    return h
 
 
-def design( M, m, r, v, wp ):
+def design_de_haan_synthesis_filter(h, M, m, r, v, wpW):
+    """
+    Create a synthesis prototype, given the analysis filter
 
-    R    = 2**r
-    D    = M / R
-    wpFactor = wp * M
-    print 'D = %f, wp = pi/%f' %(D, wpFactor)
-    
-    protoPath    = './prototypes.wp%d' %(wp)
-    analysisFileName = '%s/h-M=%d-m=%d-r=%d-v=%0.6f.txt' %(protoPath, M, m, r, v)
-    if not os.path.exists(os.path.dirname(analysisFileName)):
-        os.makedirs(os.path.dirname(analysisFileName))
+    :param h: Analysis filter prototype
+    :type h: vector
+    :param M: Number of subbands
+    :type M: integer
+    :param m: Filter length factor
+    :type m: integer
+    :param r: exponential decimation factor
+    :type r: integer
+    :param v: Weight for the total response error and residual aliasing distortion
+    :type v: float
+    :param wpW: Cut-off frequency factors (< M)
+    :type wpW: float
+    :returns: Coefficients of synthesis filter prototype
+    """
+    synthesis = SynthesisOversampledDFTDesignPtr(h, M = M, m = m, r = r, v = v, wp = wpW)
+    g = synthesis.design()
+    (gamma, epsir, sum_gamma_epsir) = synthesis.calcError()
 
-    synthesisFileName = '%s/g-M=%d-m=%d-r=%d-v=%0.6f.txt' %(protoPath, M, m, r, v)
-    if not os.path.exists(os.path.dirname(synthesisFileName)):
-        os.makedirs(os.path.dirname(synthesisFileName))
+    return g
 
-    if os.path.exists( analysisFileName ):
-        print '%s exists' %( analysisFileName )
-        fp = open(analysisFileName, 'r')
-        h = pickle.load(fp)
-        fp.close()
-        designSynthesisFilter(M, m, r, v, wpFactor, h, synthesisFileName )
-    else:
-        # Create and write analysis prototype
-        analysis = AnalysisOversampledDFTDesignPtr(M = M,  m = m, r = r, wpFactor = wpFactor)
-        h = analysis.design()
-        analysis.calcError()
-        print 'h = ' 
-        print h
-        fp = open(analysisFileName, 'w')
-        pickle.dump(h, fp, True)
-        fp.close()
-        designSynthesisFilter(M, m, r, v, wpFactor, h, synthesisFileName )
-                
 
-Ms  = [256,512]
-ms  = [2]
-rs  = [1]
-wps = [1]
-vs  = [1.0]
+def main( M, m, r, v, wpW, outputdir):
 
-for M in Ms:
-    for m in ms:
-        for r in rs:
-            for wp in wps:
-                for v in vs:
-                    print 'M=%d, m=%d, r=%d, v=%f wp=%f\n' %(M, m, r, v, wp)
-                    design(M, m, r, v, wp)
+    D    = M / 2**r # frame shift
+    print('M=%d m=%d r=%d D=%d v=%f wp=pi/%d*M' %(M, m, r, D, v, wpW))
+
+    h = design_de_haan_analysis_filter( M, m, r, wpW)
+    analysis_path = '%s/h-M=%d-m=%d-r=%d-v=%0.4f-w=%0.2f.pickle' %(outputdir, M, m, r, v, wpW)
+    with open(analysis_path, 'w') as fp:
+        pickle.dump(h, fp)
+
+    g = design_de_haan_synthesis_filter(h, M, m, r, v, wpW)
+    synthesis_path = '%s/g-M=%d-m=%d-r=%d-v=%0.4f-w=%0.2f.pickle' %(outputdir, M, m, r, v, wpW)
+    with open(synthesis_path, 'w') as fp:
+        pickle.dump(g, fp)
+
+
+def build_parser():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='generate coefficients of the de Haan filter prototypes.')
+    parser.add_argument('-M', dest='M',
+                        default=256, type=int,
+                        help='no. of subbands')
+    parser.add_argument('-m', dest='m',
+                        default=4, type=int,
+                        help='Prototype filter length factor')
+    parser.add_argument('-r', dest='r',
+                        default=1, type=int,
+                        help='Decimation factor')
+    parser.add_argument('-w', dest='wpW',
+                        default=1.0, type=float,
+                        help='cut-off frequency factor')
+    parser.add_argument('-v', dest='v',
+                        default=100.0, type=float,
+                        help='Weight factor for the total response error and residual aliasing distortion')
+    parser.add_argument('-o', dest='outputdir',
+                        default='./prototype.dh',
+                        help='output directory name (default: .)')
+
+    return parser
+
+
+if __name__ == '__main__':
+
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if not os.path.exists(args.outputdir):
+        os.makedirs(args.outputdir)
+    main(args.M, args.m, args.r, args.v, args.wpW, args.outputdir)
