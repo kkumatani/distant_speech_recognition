@@ -285,9 +285,9 @@ class OverSampledDFTAnalysisBank
 
   using OverSampledDFTFilterBank::polyphase;
 
- protected:
+ private:
   void update_buf_();
-  virtual void update_buffer_(int frame_no);
+  bool update_buffer_(int frame_no);
 
 #ifdef HAVE_LIBFFTW3
   fftw_plan					fftwPlan_;
@@ -320,7 +320,7 @@ class OverSampledDFTSynthesisBank
   virtual void reset();
   using OverSampledDFTFilterBank::polyphase;
 
-  void input_source_vector(const gsl_vector_complex* block){ update_buffer_(block); }
+  void input_source_vector(const gsl_vector_complex* block){ update_buf_(block); }
   void no_stream_feature(bool flag=true){ no_stream_feature_ = flag; }
 #ifdef ENABLE_LEGACY_BTK_API
   void inputSourceVector(const gsl_vector_complex* block){ input_source_vector(block); }
@@ -328,8 +328,8 @@ class OverSampledDFTSynthesisBank
 #endif
 
  private:
-  void update_buffer_(int frame_no);
-  void update_buffer_(const gsl_vector_complex* block);
+  bool update_buffer_(int frame_no);
+  void update_buf_(const gsl_vector_complex* block);
 
   const VectorComplexFeatureStreamPtr		samp_;
   bool                                          no_stream_feature_;

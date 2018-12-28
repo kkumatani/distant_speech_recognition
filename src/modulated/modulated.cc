@@ -376,21 +376,15 @@ const gsl_vector_complex* OverSampledDFTAnalysisBank::next(int frame_no)
 {
   if (frame_no == frame_no_) return vector_;
 
-  update_buffer_(frame_no);
+  if ( true == update_buffer_(frame_no) ) {
+    throw jiterator_error("end of samples!");
+  }
 
   // calculate outputs of polyphase filters
   for (unsigned m = 0; m < M_; m++) {
     double sum  = 0.0;
-    for (unsigned k = 0; k < m_; k++) {
-
-      /*
-      printf("  m = %4d : k = %4d.\n", m, k);
-      printf("    Got polyphase %g\n", polyphase(m, k));
-      printf("    Got sample %g\n", buffer_.sample(R_ * k, m));
-      */
-
+    for (unsigned k = 0; k < m_; k++)
       sum  += polyphase(m, k) * buffer_.sample(R_ * k, m);
-    }
 
     polyphase_output_[2*m]   = sum;
     polyphase_output_[2*m+1] = 0.0;
@@ -421,62 +415,57 @@ void OverSampledDFTAnalysisBank::reset()
   framesPadded_ = 0;
 }
 
-void OverSampledDFTAnalysisBank::update_buffer_(int frame_no)
+bool OverSampledDFTAnalysisBank::update_buffer_(int frame_no)
 {
-  if( true == is_end_ ){
-    throw jiterator_error("end of samples!");
+  const gsl_vector_float* block;
+
+  if( true == is_end_ ){// reached the end of frame
+    return is_end_;
   }
-  if( laN_ >0 && frame_no_ == frame_reset_no_ ){
+  if( laN_ >0 && frame_no_ == frame_reset_no_ ) {
     // skip samples for compensating the processing delays
     for (unsigned itnX = 0; itnX < laN_; itnX++){
-      const gsl_vector_float* block = samp_->next(itnX/* + Rx2_ */);
-      gsi_.nextSample(block);
-      update_buf_();
-    }
-  }
-  if (framesPadded_ == 0)
-    {// normal processing
-
-    try {
-      /*
-      if (frame_no_ == frame_reset_no_) {
-	for (unsigned i = 0; i < Rx2_; i++) {
-	  const gsl_vector_float* block = samp_->next(i);
-	  gsi_.nextSample(block);
-	}
+      try {
+        block = samp_->next(itnX/* + Rx2_ */);
       }
-      */
-      const gsl_vector_float* block;
-      if( frame_no >= 0 )
-	block = samp_->next(frame_no + laN_ );
-      else // just take the next frame
-	block = samp_->next(frame_no );
-      gsi_.nextSample(block);
-      update_buf_();
-    } catch  (exception& e) {
-      // it happens if the number of prcessing frames exceeds the data length.
-      gsi_.nextSample();
-      update_buf_();
-
-      // printf("Padding frame %d.\n", framesPadded_);
-
-      framesPadded_++;
+      catch( jiterator_error &e ) {
+        is_end_ = true;
+      }
+      if( false == is_end_ ) {
+        gsi_.nextSample(block);
+        update_buf_();
+      }
     }
-
   }
-  else if (framesPadded_ < processing_delay_)
-    {// pad with zeros
-
-      gsi_.nextSample();
-      update_buf_();
-      //fprintf(stderr,"Padding frame %d %d.\n", framesPadded_, frame_no_ );
+  if( framesPadded_ == 0 ) {// normal processing
+    try {
+      if( frame_no >= 0 )
+        block = samp_->next(frame_no + laN_ );
+      else // just take the next frame
+        block = samp_->next(frame_no );
+    }
+    catch( jiterator_error &e ) {
+      // it happens if the number of prcessing frames exceeds the data length.
       framesPadded_++;
     }
-  else
-    {// end of utterance
-      is_end_ = true;
-      throw jiterator_error("end of samples!");
+    if( framesPadded_ == 0 ) {
+      gsi_.nextSample(block);
     }
+    else {
+      gsi_.nextSample();
+    }
+    update_buf_();
+  }
+  else if (framesPadded_ < processing_delay_) {// pad with zeros
+      gsi_.nextSample();
+      update_buf_();
+      framesPadded_++;
+  }
+  else {// end of utterance
+    is_end_ = true;
+  }
+
+  return is_end_;
 }
 
 
@@ -484,8 +473,8 @@ void OverSampledDFTAnalysisBank::update_buffer_(int frame_no)
 //
 OverSampledDFTSynthesisBank::
 OverSampledDFTSynthesisBank(VectorComplexFeatureStreamPtr& samp,
-			    gsl_vector* prototype, unsigned M, unsigned m, unsigned r, 
-			    unsigned delayCompensationType, int gainFactor, 
+			    gsl_vector* prototype, unsigned M, unsigned m, unsigned r,
+			    unsigned delayCompensationType, int gainFactor,
 			    const String& nm)
   : OverSampledDFTFilterBank(prototype, M, m, r, /*synthesis=*/ true, delayCompensationType, gainFactor ),
     VectorFloatFeatureStream(D_, nm),
@@ -541,16 +530,25 @@ OverSampledDFTSynthesisBank::~OverSampledDFTSynthesisBank()
 #endif
 }
 
-void OverSampledDFTSynthesisBank::update_buffer_(int frame_no)
+bool OverSampledDFTSynthesisBank::update_buffer_(int frame_no)
 {
+  const gsl_vector_complex* block;
+
   // get next frame and perform forward OverSampledDFT
   if( false == no_stream_feature_ ){
-    const gsl_vector_complex* block = samp_->next(frame_no);
-    update_buffer_(block);
+    try {
+      block = samp_->next(frame_no);
+    }
+    catch( jiterator_error &e ) {
+      is_end_ = true;
+      return is_end_;
+    }
+    update_buf_(block);
   }
+  return false;
 }
 
-void OverSampledDFTSynthesisBank::update_buffer_(const gsl_vector_complex* block)
+void OverSampledDFTSynthesisBank::update_buf_(const gsl_vector_complex* block)
 {
   // get next frame and perform forward OverSampledDFT
   pack_complex_array_(block, polyphase_input_);
@@ -575,16 +573,21 @@ const gsl_vector_float* OverSampledDFTSynthesisBank::next(int frame_no)
   // "prime" the buffer
   if (frame_no_ == frame_reset_no_) {
     for (unsigned itnX = 0; itnX < processing_delay_; itnX++)
-      update_buffer_(itnX);
+      if ( true == update_buffer_(itnX) )
+        throw jiterator_error("end of samples!");
   }
 
   if ( frame_no >= 0 && frame_no - 1 != frame_no_ )
     printf("The output might not be continuous %s: %d != %d\n",name().c_str(), frame_no - 1, frame_no_);
 
-  if( frame_no >= 0 )
-    update_buffer_( frame_no + 1 + processing_delay_);
-  else
-    update_buffer_(frame_no_ + 1 + processing_delay_);
+  if( frame_no >= 0 ) {
+    if ( true == update_buffer_( frame_no + 1 + processing_delay_) )
+      throw jiterator_error("end of samples!");
+  }
+  else {
+    if( true == update_buffer_(frame_no_ + 1 + processing_delay_) )
+      throw jiterator_error("end of samples!");
+  }
   increment_();
 
   // calculate outputs of polyphase filters
