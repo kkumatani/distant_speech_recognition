@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(btk20)
 
+# Command example:
+# mkdir -p build; cd build; cmake -DCMAKE_INSTALL_PREFIX=$HOME/local .. && make install
+
 # Setting installation directory
 set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE STRING
                          "Installation directory for headers")
@@ -119,3 +122,7 @@ add_subdirectory(sad)
 
 include_directories(objective_measure)
 add_subdirectory(objective_measure)
+
+# python libraries
+include_directories(lib)
+add_subdirectory(lib)
