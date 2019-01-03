@@ -242,9 +242,9 @@ class SampleFeaturePtr : public VectorFloatFeatureStreamPtr {
   %feature("kwargs") SampleFeaturePtr;
  public:
   %extend {
-    SampleFeaturePtr(const String fn = "", unsigned blockLen = 320,
-                     unsigned shiftLen = 160, bool padZeros = false, const String nm = "Sample") {
-      return new SampleFeaturePtr(new SampleFeature(fn, blockLen, shiftLen, padZeros, nm));
+    SampleFeaturePtr(const String fn = "", unsigned block_len = 320,
+                     unsigned shift_len = 160, bool pad_zeros = false, const String nm = "Sample") {
+      return new SampleFeaturePtr(new SampleFeature(fn, block_len, shift_len, pad_zeros, nm));
     }
 
     SampleFeaturePtr __iter__() {
@@ -307,8 +307,8 @@ class IterativeSingleChannelSampleFeaturePtr : public VectorFloatFeatureStreamPt
   %feature("kwargs") IterativeSingleChannelSampleFeaturePtr;
  public:
   %extend {
-    IterativeSingleChannelSampleFeaturePtr(unsigned blockLen = 320, const String& nm = "IterativeSingleChannelSampleFeature") {
-      return new IterativeSingleChannelSampleFeaturePtr(new IterativeSingleChannelSampleFeature( blockLen, nm ));
+    IterativeSingleChannelSampleFeaturePtr(unsigned block_len = 320, const String& nm = "IterativeSingleChannelSampleFeature") {
+      return new IterativeSingleChannelSampleFeaturePtr(new IterativeSingleChannelSampleFeature( block_len, nm ));
     }
 
     IterativeSingleChannelSampleFeaturePtr __iter__() {
@@ -568,8 +568,8 @@ class FFTFeaturePtr : public VectorComplexFeatureStreamPtr {
   %feature("kwargs") FFTFeaturePtr;
  public:
   %extend {
-    FFTFeaturePtr(const VectorFloatFeatureStreamPtr samp, unsigned fftLen = 512, const String& nm = "FFT") {
-      return new FFTFeaturePtr(new FFTFeature(samp, fftLen, nm));
+    FFTFeaturePtr(const VectorFloatFeatureStreamPtr samp, unsigned fft_len = 512, const String& nm = "FFT") {
+      return new FFTFeaturePtr(new FFTFeature(samp, fft_len, nm));
     }
 
     FFTFeaturePtr __iter__() {
@@ -621,8 +621,8 @@ class SpectralPowerFeaturePtr : public VectorFeatureStreamPtr {
   %feature("kwargs") SpectralPowerFeaturePtr;
  public:
   %extend {
-    SpectralPowerFeaturePtr(const VectorComplexFeatureStreamPtr& fft, unsigned powN = 0, const String nm = "Power") {
-      return new SpectralPowerFeaturePtr(new SpectralPowerFeature(fft, powN, nm));
+    SpectralPowerFeaturePtr(const VectorComplexFeatureStreamPtr& fft, unsigned pow_num = 0, const String nm = "Power") {
+      return new SpectralPowerFeaturePtr(new SpectralPowerFeature(fft, pow_num, nm));
     }
 
     SpectralPowerFeaturePtr __iter__() {
@@ -856,9 +856,9 @@ class VTLNFeaturePtr : public VectorFeatureStreamPtr {
  public:
   %extend {
     VTLNFeaturePtr(const VectorFeatureStreamPtr& pow,
-                   unsigned coeffN = 0, double ratio = 1.0, double edge = 1.0, int version = 1,
+                   unsigned coeff_num = 0, double ratio = 1.0, double edge = 1.0, int version = 1,
                    const String& nm = "VTLN") {
-      return new VTLNFeaturePtr(new VTLNFeature(pow, coeffN, ratio, edge, version, nm));
+      return new VTLNFeaturePtr(new VTLNFeature(pow, coeff_num, ratio, edge, version, nm));
     }
 
     VTLNFeaturePtr __iter__() {
@@ -890,10 +890,10 @@ class MelFeaturePtr : public VectorFeatureStreamPtr {
   %feature("kwargs") MelFeaturePtr;
  public:
   %extend {
-    MelFeaturePtr(const VectorFeatureStreamPtr mag, int powN = 0,
+    MelFeaturePtr(const VectorFeatureStreamPtr mag, int pow_num = 0,
                   float rate = 16000.0, float low = 0.0, float up = 0.0,
-                  int filterN = 30, int version = 1, const String& nm = "MelFFT") {
-      return new MelFeaturePtr(new MelFeature(mag, powN, rate, low, up, filterN, version, nm));
+                  int filter_num = 30, int version = 1, const String& nm = "MelFFT") {
+      return new MelFeaturePtr(new MelFeature(mag, pow_num, rate, low, up, filter_num, version, nm));
     }
 
     MelFeaturePtr __iter__() {

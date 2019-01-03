@@ -42,7 +42,7 @@ def test_oversampled_dft_filter(analysis_filter_path,
         g_fb = pickle.load(fp)
 
     # Instantiation of an audio file reader
-    sample_feat = SampleFeaturePtr(blockLen = D, shiftLen = D, padZeros = True)
+    sample_feat = SampleFeaturePtr(block_len = D, shift_len = D, pad_zeros = True)
     # Instantiation of over-sampled DFT analysis filter bank
     afb = OverSampledDFTAnalysisBankPtr(sample_feat, prototype = h_fb, M = M, m = m, r = r, delay_compensation_type=2)
     # Instantiation of over-sampled DFT synthesis filter bank
@@ -90,9 +90,9 @@ def test_oversampled_dft_filter(analysis_filter_path,
 def build_parser():
     import argparse
 
-    M = 64 #128 256
-    m = 2 #4
-    r = 1 #3
+    M = 64
+    m = 4
+    r = 1
 
     # protoPath    = 'prototype.ny'
     # analysis_filter_path  = '%s/h-M%d-m%d-r%d.pickle' %(protoPath, M, m, r)

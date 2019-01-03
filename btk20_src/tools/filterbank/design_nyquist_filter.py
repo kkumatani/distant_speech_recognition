@@ -295,7 +295,7 @@ def build_parser():
                         default=4, type=int,
                         help='Prototype filter length factor')
     parser.add_argument('-r', dest='r',
-                        default=2, type=int,
+                        default=1, type=int,
                         help='Decimation factor')
     parser.add_argument('-o', dest='outputdir',
                         default='./prototype.ny',
