@@ -453,7 +453,7 @@ const gsl_vector* getGCC(gsl_matrix_complex *spectralSample, double sampleRate)
 
   gsl_matrix *interpolValues = gsl_matrix_alloc(fftLen, 2);
   
-  double maxCorr = -HUGE;
+  double maxCorr = -HUGE_VAL;
   int delayPos   = 0;
   for (int j = 0; j < fftLen; j++) {
     int idx;
@@ -523,7 +523,7 @@ const gsl_vector* getWindowedGCC(gsl_matrix_complex *spectralSample, double samp
 
   gsl_matrix *interpolValues = gsl_matrix_alloc(fftLen, 2);
   
-  double maxCorr = -HUGE;
+  double maxCorr = -HUGE_VAL;
   int delayPos   = 0;
   for (int j = 0; j < fftLen; j++) {
     int idx;
@@ -593,8 +593,8 @@ const gsl_vector* getWindowedGCCratio(gsl_matrix_complex *spectralSample, double
 
   gsl_matrix *interpolValues = gsl_matrix_alloc(fftLen, 2);
   
-  double maxCorr = -HUGE;
-  double maxCorr2 = -HUGE;
+  double maxCorr = -HUGE_VAL;
+  double maxCorr2 = -HUGE_VAL;
   int delayPos   = 0;
   for (int j = 0; j < fftLen; j++) {
     int idx;
@@ -671,7 +671,7 @@ const gsl_vector* getWindowedGCCdirect(gsl_matrix_complex *spectralSample, doubl
   pack_half_complex(crossCorrelation, crossSpectrum, fftLen);
   gsl_fft_halfcomplex_radix2_inverse (crossCorrelation, /* stride=*/ 1, fftLen);
 
-  double maxCorr = -HUGE;
+  double maxCorr = -HUGE_VAL;
   double delay   = 0;
   for (int j = 0; j < fftLen; j++) {
     double del = 0.0;
@@ -734,7 +734,7 @@ const gsl_vector* getWindowedGCCabs(gsl_matrix_complex *spectralSample, double s
 
   gsl_matrix *interpolValues = gsl_matrix_alloc(fftLen, 2);
   
-  double maxCorr = -HUGE;
+  double maxCorr = -HUGE_VAL;
   int delayPos   = 0;
   for (int j = 0; j < fftLen; j++) {
     int idx;
@@ -804,8 +804,8 @@ const gsl_vector* getDynWindowedGCC(gsl_matrix_complex *spectralSample, double s
 
   gsl_matrix *interpolValues = gsl_matrix_alloc(fftLen, 2);
   
-  double maxCorr = -HUGE;
-  double wMaxCorr = -HUGE;
+  double maxCorr = -HUGE_VAL;
+  double wMaxCorr = -HUGE_VAL;
   int delayPos   = 0;
   int wDelayPos   = 0;
   for (int j = 0; j < fftLen; j++) {
@@ -1276,8 +1276,8 @@ void GCC::calculate(const gsl_vector_complex *spectralSample1, unsigned chan1, c
 
 const gsl_vector* GCC::findMaximum(double minDelay, double maxDelay)
 {
-  maxCorr = -HUGE;
-  maxCorr2 = -HUGE;
+  maxCorr = -HUGE_VAL;
+  maxCorr2 = -HUGE_VAL;
   delayPos = 0;
   delay = 0.0;
   for (unsigned i = 0; i < fftLen; i++) {

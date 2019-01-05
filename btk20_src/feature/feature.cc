@@ -1370,7 +1370,7 @@ void ALogFeature::reset()
 
   if (runon_) return;
 
-  min_ = HUGE; max_ = -HUGE; minMaxFound_ = false;
+  min_ = HUGE_VAL; max_ = -HUGE_VAL; minMaxFound_ = false;
 }
 
 void ALogFeature::find_min_max_(const gsl_vector_float* block)
@@ -1407,7 +1407,7 @@ void ALogFeature::find_min_max_(const gsl_vector_float* block)
 NormalizeFeature::
 NormalizeFeature(const VectorFloatFeatureStreamPtr& samp, double min, double max, bool runon, const String& nm)
   : VectorFloatFeatureStream(samp->size(), nm), samp_(samp), min_(min), max_(max), range_(max_ - min_),
-    xmin_(HUGE), xmax_(-HUGE), minMaxFound_(false), runon_(runon) { }
+    xmin_(HUGE_VAL), xmax_(-HUGE_VAL), minMaxFound_(false), runon_(runon) { }
 
 const gsl_vector_float* NormalizeFeature::next(int frame_no)
 {
@@ -1441,7 +1441,7 @@ void NormalizeFeature::reset()
 
   if (runon_) return;
 
-  xmin_ = HUGE; xmax_ = -HUGE; minMaxFound_ = false;
+  xmin_ = HUGE_VAL; xmax_ = -HUGE_VAL; minMaxFound_ = false;
 }
 
 void NormalizeFeature::find_min_max_(const gsl_vector_float* block)

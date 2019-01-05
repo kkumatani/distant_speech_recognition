@@ -7,8 +7,8 @@
 #include "beamformer/beamformer.h"
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_sf_trig.h>
-#include <matrix/blas1_c.H>
-#include <matrix/linpack_c.H>
+#include <matrix/blas1_c.h>
+#include <matrix/linpack_c.h>
 #include "postfilter/postfilter.h"
 
 //float  sspeed = 343740.0;

@@ -308,7 +308,7 @@ EnergyVADFeature(const VectorFloatFeatureStreamPtr& source, double threshold, un
   sorted_energies_ = new double[energiesN_];
 
   for (unsigned n = 0; n < energiesN_; n++)
-    energies_[n] = HUGE;
+    energies_[n] = HUGE_VAL;
 
   // printf("Median index %d\n", medianX_);
 }
@@ -332,7 +332,7 @@ void EnergyVADFeature::reset()
 void EnergyVADFeature::next_speaker()
 {
   for (unsigned n = 0; n < energiesN_; n++)
-    energies_[n] = HUGE;
+    energies_[n] = HUGE_VAL;
 }
 
 int EnergyVADFeature::comparator_(const void* elem1, const void* elem2)

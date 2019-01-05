@@ -120,7 +120,7 @@ class GCC
   GCC(double sampleRate = 44100.0 , unsigned fftLen = 2048, unsigned nChan = 16, unsigned pairs = 6, double alpha = 0.95, double beta = 0.5, double q = 0.3, bool interpolate = true, bool noisereduction = true);
   ~GCC();
   void calculate(const gsl_vector_complex *spectralSample1, unsigned chan1, const gsl_vector_complex *spectralSample2, unsigned chan2, unsigned pair, double timestamp, bool sad = false, bool smooth = true);
-  const gsl_vector* findMaximum(double minDelay = -HUGE, double maxDelay = HUGE);
+  const gsl_vector* findMaximum(double minDelay = -HUGE_VAL, double maxDelay = HUGE_VAL);
   double getPeakDelay() { return delay; }
   double getPeakCorr() { return maxCorr; }
   double getRatio() { return ratio; }

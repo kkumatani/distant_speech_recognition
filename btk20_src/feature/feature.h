@@ -639,13 +639,13 @@ class ALogFeature : public VectorFloatFeatureStream {
   ALogFeature(const VectorFloatFeatureStreamPtr& samp, double m = 1.0, double a = 4.0,
               bool runon = false, const String& nm = "ALogPower") :
     VectorFloatFeatureStream(/* size= */ 1, nm), samp_(samp), m_(m), a_(a),
-      min_(HUGE), max_(-HUGE), minMaxFound_(false), runon_(runon) { }
+      min_(HUGE_VAL), max_(-HUGE_VAL), minMaxFound_(false), runon_(runon) { }
 
   virtual ~ALogFeature() { }
 
   virtual const gsl_vector_float* next(int frame_no = -5);
   virtual void reset();
-  void next_speaker() { min_ = HUGE; max_ = -HUGE; minMaxFound_ = false; }
+  void next_speaker() { min_ = HUGE_VAL; max_ = -HUGE_VAL; minMaxFound_ = false; }
 
 #ifdef ENABLE_LEGACY_BTK_API
   void nextSpeaker(){ next_speaker(); }
@@ -681,7 +681,7 @@ class NormalizeFeature : public VectorFloatFeatureStream {
 
   virtual const gsl_vector_float* next(int frame_no = -5);
   virtual void reset();
-  void next_speaker() { xmin_ = HUGE; xmax_ = -HUGE; minMaxFound_ = false; }
+  void next_speaker() { xmin_ = HUGE_VAL; xmax_ = -HUGE_VAL; minMaxFound_ = false; }
 
 #ifdef ENABLE_LEGACY_BTK_API
   void nextSpeaker(){ next_speaker(); }

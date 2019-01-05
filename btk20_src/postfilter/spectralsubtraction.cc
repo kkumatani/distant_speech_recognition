@@ -1,7 +1,7 @@
 #include "spectralsubtraction.h"
 #include <gsl/gsl_blas.h>
-#include <matrix/blas1_c.H>
-#include <matrix/linpack_c.H>
+#include <matrix/blas1_c.h>
+#include <matrix/linpack_c.h>
 
 PSDEstimator::PSDEstimator(unsigned fftLen2)
 {

@@ -285,7 +285,7 @@ double SynthesisNyquistMDesignCompositeResponse::_sinc(int m)
     throw jindex_error("Problem: index %d > 2 * L = %d", am, 2 * _L);
 
   double val = _sincValues[am];
-  if (val != -HUGE) return val;
+  if (val != -HUGE_VAL) return val;
 
   if (m == 0)
     val = _sincValues[am] = 1.0;

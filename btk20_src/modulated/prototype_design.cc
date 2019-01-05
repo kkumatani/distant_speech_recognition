@@ -1118,7 +1118,7 @@ SynthesisNyquistMDesignCompositeResponse(const gsl_vector* h, int M, int m, int 
     _sincValues(new double[2 * _L])
 {
   for (unsigned m = 0; m < 2 * _L; m++)
-    _sincValues[m] = -HUGE;
+    _sincValues[m] = -HUGE_VAL;
 }
 
 SynthesisNyquistMDesignCompositeResponse::

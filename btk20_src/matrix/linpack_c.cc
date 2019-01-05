@@ -1,5 +1,5 @@
-# include "blas1_c.H"
-# include "linpack_c.H"
+# include "blas1_c.h"
+# include "linpack_c.h"
 
 //****************************************************************************80
 

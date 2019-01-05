@@ -219,7 +219,8 @@ void freadAdd(const String& fileName, char commentChar, T* addmethod)
     if ( line[0] == commentChar) continue;
 
     for (p=&(line[0]); *p!='\0'; p++)
-      if (*p>' ') break; if (*p=='\0') continue;
+      if (*p>' ') break;
+    if (*p=='\0') continue;
 
     try {
       // cout << "Adding: " << line << endl;
