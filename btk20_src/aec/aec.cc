@@ -18,8 +18,9 @@
 // ----- methods for class `NLMSAcousticEchoCancellationFeature' -----
 //
 NLMSAcousticEchoCancellationFeature::
-NLMSAcousticEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-				    double delta, double epsilon, double threshold, const String& nm)
+NLMSAcousticEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                    const VectorComplexFeatureStreamPtr& recorded,
+                                    double delta, double epsilon, double threshold, const String& nm)
   :  VectorComplexFeatureStream(played->size(), nm),
      played_(played), recorded_(recorded), fftLen_(played->size()), fftLen2_(fftLen_ / 2), filterCoefficient_(gsl_vector_complex_alloc(fftLen_)),
      delta_(delta), epsilon_(epsilon), threshold_(threshold) { }
@@ -70,15 +71,7 @@ const gsl_vector_complex* NLMSAcousticEchoCancellationFeature::next(int frame_no
       gsl_complex nC = gsl_complex_sub(Rk, deltaC);
       gsl_vector_complex_set(filterCoefficient_, k, nC);
       if (k > 0 && k < fftLen2_)
-	gsl_vector_complex_set(filterCoefficient_, fftLen_ - k, gsl_complex_conjugate(nC));
-
-      if (k == 20) {
-	printf("deltaC  = (%g + %gj)\n", GSL_REAL(deltaC), GSL_IMAG(deltaC));
-	printf("Vk2     = %g\n", Vk2);
-	printf("Ak2     = %g\n", Ak2);
-	printf("Rk      = (%g + %gj)\n", GSL_REAL(nC), GSL_IMAG(nC));
-	fflush(stdout);
-      }
+        gsl_vector_complex_set(filterCoefficient_, fftLen_ - k, gsl_complex_conjugate(nC));
     }
   }
 
@@ -90,8 +83,9 @@ const gsl_vector_complex* NLMSAcousticEchoCancellationFeature::next(int frame_no
 // ----- methods for class `KalmanFilterEchoCancellationFeature' -----
 //
 KalmanFilterEchoCancellationFeature::
-KalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-				    double beta, double sigma2, double threshold, const String& nm)
+KalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                    const VectorComplexFeatureStreamPtr& recorded,
+                                    double beta, double sigma2, double threshold, const String& nm)
   :  VectorComplexFeatureStream(played->size(), nm),
      played_(played), recorded_(recorded), fftLen_(played->size()), fftLen2_(fftLen_ / 2),
      filterCoefficient_(gsl_vector_complex_calloc(fftLen_)), sigma2_v_(gsl_vector_calloc(fftLen_)),
@@ -136,7 +130,7 @@ const gsl_vector_complex* KalmanFilterEchoCancellationFeature::next(int frame_no
           gsl_complex Ak = gsl_vector_complex_get(recordBlock, m);
           gsl_complex Rk = gsl_vector_complex_get(filterCoefficient_, m);
     const gsl_complex Vk = gsl_vector_complex_get(playBlock, m);
-    
+
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex Ek = gsl_complex_sub(Ak, gsl_complex_mul(Rk, Vk));
     gsl_vector_complex_set(vector_, m, Ek);
@@ -146,8 +140,8 @@ const gsl_vector_complex* KalmanFilterEchoCancellationFeature::next(int frame_no
     if (update_(Vk)) {
 
       // Estimate the observation noise variance
-      double      Ek2		= gsl_complex_abs2(Ek);
-      double	  sigma2_v	= beta_ * gsl_vector_get(sigma2_v_, m) + (1.0 - beta_) * Ek2;
+      double Ek2      = gsl_complex_abs2(Ek);
+      double sigma2_v = beta_ * gsl_vector_get(sigma2_v_, m) + (1.0 - beta_) * Ek2;
       gsl_vector_set(sigma2_v_, m, sigma2_v);
 
       // Calculate the Kalman gain
@@ -157,33 +151,12 @@ const gsl_vector_complex* KalmanFilterEchoCancellationFeature::next(int frame_no
       gsl_complex Gk		= gsl_complex_mul_real(gsl_complex_conjugate(Vk), K_k_k1 / sigma2_s);
 
       // Update the filter weight
-      Rk			= gsl_complex_add(Rk, gsl_complex_mul(Gk, Ek));
+      Rk = gsl_complex_add(Rk, gsl_complex_mul(Gk, Ek));
       gsl_vector_complex_set(filterCoefficient_, m, Rk);
 
       // Store the state estimation error variance for next the iteration
-      double 	  K_k		= (1.0 - K_k_k1 * Vk2 / sigma2_s) * K_k_k1;
+      double K_k = (1.0 - K_k_k1 * Vk2 / sigma2_s) * K_k_k1;
       gsl_vector_set(K_k_, m, K_k);
-
-      /*
-      if (m == 20) {
-	printf("FrameX		= %d\n", frame_no);
-	printf("-------------------------------------------\n");
-	printf("Vk2		= %g\n", Vk2);
-	printf("Ek2		= %g\n", Ek2);
-	printf("K_k_k1		= %g\n", K_k_k1);
-	printf("K_k		= %g\n", K_k);
-	printf("sigma2_s	= %g\n", sigma2_s);
-	printf("sigma2_v	= %g\n", sigma2_v);
-	printf("Gk		= (%g + %gj)\n", GSL_REAL(Gk), GSL_IMAG(Gk));
-	printf("Ek		= (%g + %gj)\n", GSL_REAL(Ek), GSL_IMAG(Ek));
-	printf("Rk		= (%g + %gj)\n", GSL_REAL(Rk), GSL_IMAG(Rk));
-	printf("Ak		= (%g + %gj)\n", GSL_REAL(Ak), GSL_IMAG(Ak));
-	printf("Vk		= (%g + %gj)\n", GSL_REAL(Vk), GSL_IMAG(Vk));
-	printf("\n");
-
-	fflush(stdout);
-      }
-      */
     }
   }
 
@@ -197,8 +170,9 @@ gsl_complex BlockKalmanFilterEchoCancellationFeature::ComplexOne_  = gsl_complex
 gsl_complex BlockKalmanFilterEchoCancellationFeature::ComplexZero_ = gsl_complex_rect(0.0, 0.0);
 
 BlockKalmanFilterEchoCancellationFeature::
-BlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					 unsigned sampleN, double beta, double sigmau2, double sigmak2, double threshold, double amp4play, const String& nm)
+BlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                         const VectorComplexFeatureStreamPtr& recorded,
+                                         unsigned sampleN, double beta, double sigmau2, double sigmak2, double threshold, double amp4play, const String& nm)
   :  VectorComplexFeatureStream(played->size(), nm),
      played_(played), recorded_(recorded), fftLen_(played->size()), fftLen2_(fftLen_ / 2), sampleN_(sampleN),
      buffer_(fftLen_, sampleN_), filterCoefficient_(new gsl_vector_complex*[fftLen_]),
@@ -277,13 +251,13 @@ const gsl_vector_complex* BlockKalmanFilterEchoCancellationFeature::next(int fra
 
   const gsl_vector_complex* playBlock	= played_->next(frame_no_ + 1);
   const gsl_vector_complex* recordBlock	= recorded_->next(frame_no_ + 1);
-  buffer_.nextSample(playBlock,amp4play_);
+  buffer_.next_sample(playBlock,amp4play_);
 
   for (unsigned m = 0; m <= fftLen2_; m++) {
     gsl_complex         Ak = gsl_vector_complex_get(recordBlock, m);
     gsl_vector_complex* Rk = filterCoefficient_[m];
-    const gsl_vector_complex* Vk = buffer_.getSamples(m);
-    
+    const gsl_vector_complex* Vk = buffer_.get_samples(m);
+
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex iprod;
     gsl_blas_zdotu(Rk, Vk, &iprod);
@@ -292,11 +266,6 @@ const gsl_vector_complex* BlockKalmanFilterEchoCancellationFeature::next(int fra
     if (m > 0 && m < fftLen2_)
       gsl_vector_complex_set(vector_, fftLen_ - m, gsl_complex_conjugate(Ek));
 
-    if (m == 20) {
-      printf("FrameX		= %d\n", frame_no);
-      printf("-------------------------------------------\n");
-      fflush(stdout);
-    }
     double Ek2;
     if (update_(Vk)) {
 
@@ -312,12 +281,7 @@ const gsl_vector_complex* BlockKalmanFilterEchoCancellationFeature::next(int fra
       conjugate_(scratch2_, Vk);
       gsl_blas_zgemv(CblasNoTrans, ComplexOne_, K_k_k1_, scratch2_, ComplexZero_, scratch_);
       gsl_blas_zdotu(Vk, scratch_, &iprod);
-      /*
-      if (m == 20) {
-	printf("Intermediate: iprod = %g : Vk2 = %g\n", GSL_REAL(iprod), gsl_complex_abs2(gsl_vector_complex_get(Vk, 0)));
-	fflush(stdout);
-      }
-      */
+
       double sigma2_s = GSL_REAL(iprod) + sigma2_v;
       gsl_vector_complex_set_zero(Gk_);
       gsl_blas_zaxpy(gsl_complex_rect(1.0 / sigma2_s, 0.0), scratch_, Gk_);
@@ -335,27 +299,6 @@ const gsl_vector_complex* BlockKalmanFilterEchoCancellationFeature::next(int fra
         }
       }
       gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, ComplexOne_, scratchMatrix_, K_k_k1_, ComplexZero_, K_k_[m]);
-
-      if (m == 20) {
-        printf("K_k_k1[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_k1_, 0, 0)));
-        printf("K_k[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_[m], 0, 0)));
-        printf("sigma2_s	= %g\n", sigma2_s);
-        printf("sigma2_v	= %g\n", sigma2_v);
-        printf("Gk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Gk_, 0)), GSL_IMAG(gsl_vector_complex_get(Gk_, 0)));
-        fflush(stdout);
-      }
-    }
-
-    if (m == 20) {
-      printf("Vk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Vk, 0)));
-      printf("Ek2		= %g\n", Ek2);
-      printf("Ek		= (%g + %gj)\n", GSL_REAL(Ek), GSL_IMAG(Ek));
-      printf("Rk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Rk, 0)), GSL_IMAG(gsl_vector_complex_get(Rk, 0)));
-      printf("Rk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Rk, 0)));
-      printf("Ak		= (%g + %gj)\n", GSL_REAL(Ak), GSL_IMAG(Ak));
-      printf("Vk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Vk, 0)), GSL_IMAG(gsl_vector_complex_get(Vk, 0)));
-      printf("\n");
-      fflush(stdout);
     }
   }
 
@@ -367,9 +310,9 @@ const gsl_vector_complex* BlockKalmanFilterEchoCancellationFeature::next(int fra
 // ----- methods for class `InformationFilterEchoCancellationFeature' -----
 //
 InformationFilterEchoCancellationFeature::
-InformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					 unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth,
-					 double loading, double amp4play, const String& nm)
+InformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                         const VectorComplexFeatureStreamPtr& recorded,
+                                         unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth, double loading, double amp4play, const String& nm)
   : BlockKalmanFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, amp4play, nm),
     smoothEk_(smooth), smoothSk_(smooth), engTh_(engTh),
     snr_(new double[fftLen_]), EkEnergy_(new double[fftLen_]), SkEnergy_(new double[fftLen_]), loading_(loading),
@@ -406,7 +349,7 @@ InformationFilterEchoCancellationFeature::~InformationFilterEchoCancellationFeat
   gsl_matrix_complex_free(matrixCopy_);
 }
 
-void InformationFilterEchoCancellationFeature::printMatrix_(const gsl_matrix_complex* mat)
+void InformationFilterEchoCancellationFeature::print_matrix_(const gsl_matrix_complex* mat)
 {
   for (unsigned m = 0; m < mat->size1; m++) {
     for (unsigned n = 0; n < mat->size2; n++) {
@@ -417,7 +360,7 @@ void InformationFilterEchoCancellationFeature::printMatrix_(const gsl_matrix_com
   }
 }
 
-void InformationFilterEchoCancellationFeature::printVector_(const gsl_vector_complex* vec)
+void InformationFilterEchoCancellationFeature::print_vector_(const gsl_vector_complex* vec)
 {
   for (unsigned n = 0; n < vec->size; n++) {
     gsl_complex value = gsl_vector_complex_get(vec, n);
@@ -425,7 +368,7 @@ void InformationFilterEchoCancellationFeature::printVector_(const gsl_vector_com
   }
 }
 
-double InformationFilterEchoCancellationFeature::updateBand_(const gsl_complex Ak, const gsl_complex Ek, int frame_no, unsigned m)
+double InformationFilterEchoCancellationFeature::update_band_(const gsl_complex Ak, const gsl_complex Ek, int frame_no, unsigned m)
 {
   double smthEk, smthSk;
   // if it is the first 100 frames
@@ -498,12 +441,12 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
 
   const gsl_vector_complex* playBlock	= played_->next(frame_no_ + 1);
   const gsl_vector_complex* recordBlock	= recorded_->next(frame_no_ + 1);
-  buffer_.nextSample(playBlock,amp4play_);
+  buffer_.next_sample(playBlock,amp4play_);
 
   for (unsigned m = 0; m <= fftLen2_; m++) {
     gsl_complex			Ak = gsl_vector_complex_get(recordBlock, m);
     gsl_vector_complex*		Rk = filterCoefficient_[m];
-    const gsl_vector_complex*	Vk = buffer_.getSamples(m);
+    const gsl_vector_complex*	Vk = buffer_.get_samples(m);
 
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex iprod;
@@ -517,16 +460,7 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
     if (m > 0 && m < fftLen2_)
       gsl_vector_complex_set(vector_, fftLen_ - m, gsl_complex_conjugate(Ek));
 
-    /*
-    if (m == 20) {
-      printf("FrameX		= %d\n", frame_no);
-      printf("-------------------------------------------\n");
-      printf("K_k_k1[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_k1_, 0, 0)));
-      fflush(stdout);
-    }
-    */
-
-    if (update_(Vk) == false || updateBand_(Ak, Ek, frame_no, m) < 0.0){
+    if (update_(Vk) == false || update_band_(Ak, Ek, frame_no, m) < 0.0){
       if( skippedN_ >= maxSkippedN_ ){
 	// initialize filter coefficients
 	gsl_vector_complex_set(filterCoefficient_[m], 0, gsl_complex_rect(1.0, 0.0));
@@ -549,16 +483,6 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
     invert_(K_k_k1_);
     gsl_blas_zgemv(CblasNoTrans, ComplexOne_, inverse_, Rk, ComplexZero_, scratch_);
 
-    /*
-    if (m == 20) {
-      printf("After temporal update:\n");
-      printMatrix_(inverse_);
-      printf("\n");
-      printVector_(scratch_);
-      printf("\n");
-    }
-    */
-
     // form the matrix I_k = scratchMatrix_ and vector i_k = scratch2_
     double scale = 1.0 / sigma2_v;
     for (unsigned rowX = 0; rowX < sampleN_; rowX++) {
@@ -566,24 +490,14 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
       gsl_vector_complex_set(scratch2_, rowX, gsl_complex_mul(value, Ak));
 
       for (unsigned colX = 0; colX < sampleN_; colX++) {
-	gsl_complex colV = gsl_vector_complex_get(Vk, colX);
-	gsl_matrix_complex_set(scratchMatrix_, rowX, colX, gsl_complex_mul(value, colV));
+        gsl_complex colV = gsl_vector_complex_get(Vk, colX);
+        gsl_matrix_complex_set(scratchMatrix_, rowX, colX, gsl_complex_mul(value, colV));
       }
     }
 
     // now perform the information correction/update step
     gsl_matrix_complex_add(scratchMatrix_, inverse_);
     gsl_vector_complex_add(scratch_, scratch2_);
-
-    /*
-    if (m == 20) {
-      printf("After observational update:\n");
-      printMatrix_(scratchMatrix_);
-      printf("\n");
-      printVector_(scratch_);
-      printf("\n");
-    }
-    */
 
     // extra diagonal loading to limit the size of the filter coefficients
     static const gsl_complex load = gsl_complex_rect(loading_, 0.0);
@@ -596,32 +510,6 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
     invert_(scratchMatrix_);
     gsl_matrix_complex_memcpy(K_k_[m], inverse_);
     gsl_blas_zgemv(CblasNoTrans, ComplexOne_, inverse_, scratch_, ComplexZero_, Rk);
-
-    /*
-    if (m == 20) {
-      printf("After diagonal loading:\n");
-      printMatrix_(scratchMatrix_);
-      printf("\n");
-      printVector_(Rk);
-      printf("Done\n\n");
-    }
-    */
-
-    /*
-    if (m == 20) {
-      printf("K_k[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_[m], 0, 0)));
-      printf("sigma2_v	= %g\n", sigma2_v);
-      printf("Vk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Vk, 0)));
-      printf("Ek2		= %g\n", Ek2);
-      printf("Ek		= (%g + %gj)\n", GSL_REAL(Ek), GSL_IMAG(Ek));
-      printf("Rk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Rk, 0)), GSL_IMAG(gsl_vector_complex_get(Rk, 0)));
-      printf("Rk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Rk, 0)));
-      printf("Ak		= (%g + %gj)\n", GSL_REAL(Ak), GSL_IMAG(Ak));
-      printf("Vk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Vk, 0)), GSL_IMAG(gsl_vector_complex_get(Vk, 0)));
-      printf("\n");
-      fflush(stdout);
-    }
-    */
   }
 
   increment_();
@@ -633,8 +521,8 @@ const gsl_vector_complex* InformationFilterEchoCancellationFeature::next(int fra
 //
 SquareRootInformationFilterEchoCancellationFeature::
 SquareRootInformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-						   unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth,
-						   double loading, double amp4play, const String& nm)
+                                                   unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth,
+                                                   double loading, double amp4play, const String& nm)
   : InformationFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, engTh, smooth, loading, amp4play, nm),
     load_(gsl_complex_rect(sqrt(loading_), 0.0)),
     informationState_(new gsl_vector_complex*[fftLen_])
@@ -670,8 +558,8 @@ SquareRootInformationFilterEchoCancellationFeature::~SquareRootInformationFilter
 // calculate the cosine 'c' and sine 's' parameters of Givens
 // rotation that rotates 'v2' into 'v1'
 gsl_complex SquareRootInformationFilterEchoCancellationFeature::
-calcGivensRotation_(const gsl_complex& v1, const gsl_complex& v2,
-		    gsl_complex& c, gsl_complex& s)
+calc_givens_rotation_(const gsl_complex& v1, const gsl_complex& v2,
+                    gsl_complex& c, gsl_complex& s)
 {
   double norm = sqrt(gsl_complex_abs2(v1) + gsl_complex_abs2(v2));
 
@@ -686,7 +574,7 @@ calcGivensRotation_(const gsl_complex& v1, const gsl_complex& v2,
 
 // apply a previously calculated Givens rotation
 void SquareRootInformationFilterEchoCancellationFeature::
-applyGivensRotation_(const gsl_complex& v1, const gsl_complex& v2,
+apply_givens_rotation_(const gsl_complex& v1, const gsl_complex& v2,
 		     const gsl_complex& c, const gsl_complex& s,
 		     gsl_complex& v1p, gsl_complex& v2p)
 {
@@ -700,7 +588,7 @@ applyGivensRotation_(const gsl_complex& v1, const gsl_complex& v2,
 
 // extract covariance state from square-root information state
 void SquareRootInformationFilterEchoCancellationFeature::
-extractCovarianceState_(const gsl_matrix_complex* K_k, const gsl_vector_complex* sk, gsl_vector_complex* xk)
+extract_covariance_state_(const gsl_matrix_complex* K_k, const gsl_vector_complex* sk, gsl_vector_complex* xk)
 {
   for (int sampX = sampleN_ - 1; sampX >= 0; sampX--) {
     gsl_complex skn = gsl_complex_conjugate(gsl_vector_complex_get(sk, sampX));
@@ -733,12 +621,12 @@ const gsl_vector_complex* SquareRootInformationFilterEchoCancellationFeature::ne
 
   const gsl_vector_complex* playBlock	= played_->next(frame_no_ + 1);
   const gsl_vector_complex* recordBlock	= recorded_->next(frame_no_ + 1);
-  buffer_.nextSample(playBlock,amp4play_);
+  buffer_.next_sample(playBlock,amp4play_);
 
   for (unsigned m = 0; m <= fftLen2_; m++) {
     gsl_complex			Ak = gsl_vector_complex_get(recordBlock, m);
     gsl_vector_complex*		Rk = filterCoefficient_[m];
-    const gsl_vector_complex*	Vk = buffer_.getSamples(m);
+    const gsl_vector_complex*	Vk = buffer_.get_samples(m);
 
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex iprod;
@@ -748,16 +636,7 @@ const gsl_vector_complex* SquareRootInformationFilterEchoCancellationFeature::ne
     if (m > 0 && m < fftLen2_)
       gsl_vector_complex_set(vector_, fftLen_ - m, gsl_complex_conjugate(Ek));
 
-    /*
-    if (m == 20) {
-      printf("FrameX		= %d\n", frame_no);
-      printf("-------------------------------------------\n");
-      printf("K_k_k1[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_k1_, 0, 0)));
-      fflush(stdout);
-    }
-    */
-
-    if (update_(Vk) == false || updateBand_(Ak, Ek, frame_no, m) < 0.0) continue;
+    if (update_(Vk) == false || update_band_(Ak, Ek, frame_no, m) < 0.0) continue;
 
     // Estimate the observation noise variance
     double Ek2		= gsl_complex_abs2(Ek);
@@ -765,68 +644,12 @@ const gsl_vector_complex* SquareRootInformationFilterEchoCancellationFeature::ne
     gsl_vector_set(sigma2_v_, m, sigma2_v);
 
     // perform prediction, correction, and add diagonal loading
-    temporalUpdate_(m);
-
-    /*
-    if (m == 20) {
-      printf("After temporal update:\n");
-      gsl_blas_zgemm(CblasNoTrans, CblasConjTrans, ComplexOne_, K_k_[m], K_k_[m], ComplexZero_, inverse_);
-      printMatrix_(inverse_);
-      printf("\n");
-      extractCovarianceState_(K_k_[m], informationState_[m], scratch_);
-      printVector_(scratch_);
-      printf("\n");
-    }
-    */
-
-    observationalUpdate_(m, Ak, sigma2_v);
-
-    /*
-    if (m == 20) {
-      printf("After observational update:\n");
-      gsl_blas_zgemm(CblasNoTrans, CblasConjTrans, ComplexOne_, K_k_[m], K_k_[m], ComplexZero_, inverse_);
-      printMatrix_(inverse_);
-      printf("\n");
-      extractCovarianceState_(K_k_[m], informationState_[m], scratch_);
-      printVector_(scratch_);
-      printf("\n");
-    }
-    */
-
-    diagonalLoading_(m);
+    temporal_update_(m);
+    observational_update_(m, Ak, sigma2_v);
+    diagonal_loading_(m);
 
     // extract filter coefficients from information vector and store
-    extractCovarianceState_(K_k_[m], informationState_[m], Rk);
-
-    /*
-    if (m == 20) {
-      printf("After diagonal loading:\n");
-      gsl_blas_zgemm(CblasNoTrans, CblasConjTrans, ComplexOne_, K_k_[m], K_k_[m], ComplexZero_, inverse_);
-      printMatrix_(inverse_);
-      printf("\n");
-      printVector_(Rk);
-      printf("Done\n\n");
-    }
-    */
-
-    /*
-    if (m == 20) {
-      printf("State:\n");
-      printVector_(Rk);
-      printf("\n");
-      printf("K_k[0][0]	= %g\n", GSL_REAL(gsl_matrix_complex_get(K_k_[m], 0, 0)));
-      printf("sigma2_v	= %g\n", sigma2_v);
-      printf("Vk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Vk, 0)));
-      printf("Ek2		= %g\n", Ek2);
-      printf("Ek		= (%g + %gj)\n", GSL_REAL(Ek), GSL_IMAG(Ek));
-      printf("Rk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Rk, 0)), GSL_IMAG(gsl_vector_complex_get(Rk, 0)));
-      printf("Rk2		= %g\n", gsl_complex_abs2(gsl_vector_complex_get(Rk, 0)));
-      printf("Ak		= (%g + %gj)\n", GSL_REAL(Ak), GSL_IMAG(Ak));
-      printf("Vk[0]		= (%g + %gj)\n", GSL_REAL(gsl_vector_complex_get(Vk, 0)), GSL_IMAG(gsl_vector_complex_get(Vk, 0)));
-      printf("\n");
-      fflush(stdout);
-    }
-    */
+    extract_covariance_state_(K_k_[m], informationState_[m], Rk);
   }
 
   increment_();
@@ -835,7 +658,7 @@ const gsl_vector_complex* SquareRootInformationFilterEchoCancellationFeature::ne
 
 static gsl_complex ComplexZero = gsl_complex_rect(0.0, 0.0);
 
-void SquareRootInformationFilterEchoCancellationFeature::temporalUpdate_(unsigned m)
+void SquareRootInformationFilterEchoCancellationFeature::temporal_update_(unsigned m)
 {
   // copy in elements of the pre-array
   gsl_matrix_complex_set_zero(scratchMatrix_);
@@ -854,21 +677,13 @@ void SquareRootInformationFilterEchoCancellationFeature::temporalUpdate_(unsigne
   gsl_vector_complex_view A32(gsl_matrix_complex_subrow(scratchMatrix_, /* rowX= */ 2 * sampleN_, /* offsetX= */ sampleN_, /* columnsN= */ sampleN_));
   gsl_vector_complex_memcpy(&A32.vector, informationState_[m]);
 
-  /*
-  if (m == 20) {
-    printf("Temporal update prearray:\n");
-    printMatrix_(scratchMatrix_);
-    printf("\n");
-  }
-  */
-
   // zero out A12
   for (unsigned colX = 0; colX < sampleN_; colX++) {
     for (unsigned rowX = colX; rowX < sampleN_; rowX++) {
       gsl_complex c, s;
       gsl_complex v1 = gsl_matrix_complex_get(&A11.matrix, rowX, rowX);
       gsl_complex v2 = gsl_matrix_complex_get(&A12.matrix, rowX, colX);
-      gsl_matrix_complex_set(&A11.matrix, rowX, rowX, calcGivensRotation_(v1, v2, c, s));
+      gsl_matrix_complex_set(&A11.matrix, rowX, rowX, calc_givens_rotation_(v1, v2, c, s));
       gsl_matrix_complex_set(&A12.matrix, rowX, colX, ComplexZero);
 
       for (unsigned n = rowX + 1; n <= 2 * sampleN_; n++) {
@@ -876,20 +691,12 @@ void SquareRootInformationFilterEchoCancellationFeature::temporalUpdate_(unsigne
 	v1 = gsl_matrix_complex_get(scratchMatrix_, n, rowX);
 	v2 = gsl_matrix_complex_get(scratchMatrix_, n, colX + sampleN_);
 
-	applyGivensRotation_(v1, v2, c, s, v1p, v2p);
+	apply_givens_rotation_(v1, v2, c, s, v1p, v2p);
 	gsl_matrix_complex_set(scratchMatrix_, n, rowX, v1p);
 	gsl_matrix_complex_set(scratchMatrix_, n, colX + sampleN_, v2p);
       }
     }
   }
-
-  /*
-  if (m == 20) {
-    printf("Temporal update after annihilating A12:\n");
-    printMatrix_(scratchMatrix_);
-    printf("\n");
-  }
-  */
 
   // lower triangularize A22
   for (unsigned rowX = 0; rowX < sampleN_ - 1; rowX++) {
@@ -897,65 +704,39 @@ void SquareRootInformationFilterEchoCancellationFeature::temporalUpdate_(unsigne
       gsl_complex c, s;
       gsl_complex v1 = gsl_matrix_complex_get(&A22.matrix, rowX, rowX);
       gsl_complex v2 = gsl_matrix_complex_get(&A22.matrix, rowX, colX);
-      gsl_matrix_complex_set(&A22.matrix, rowX, rowX, calcGivensRotation_(v1, v2, c, s));
+      gsl_matrix_complex_set(&A22.matrix, rowX, rowX, calc_givens_rotation_(v1, v2, c, s));
       gsl_matrix_complex_set(&A22.matrix, rowX, colX, ComplexZero);
 
       for (unsigned n = rowX + 1; n <= sampleN_; n++) {
-	gsl_complex v1p, v2p;
-	v1 = gsl_matrix_complex_get(scratchMatrix_, sampleN_ + n, sampleN_ + rowX);
-	v2 = gsl_matrix_complex_get(scratchMatrix_, sampleN_ + n, sampleN_ + colX);
+        gsl_complex v1p, v2p;
+        v1 = gsl_matrix_complex_get(scratchMatrix_, sampleN_ + n, sampleN_ + rowX);
+        v2 = gsl_matrix_complex_get(scratchMatrix_, sampleN_ + n, sampleN_ + colX);
 
-	applyGivensRotation_(v1, v2, c, s, v1p, v2p);
-	gsl_matrix_complex_set(scratchMatrix_, sampleN_ + n, sampleN_ + rowX, v1p);
-	gsl_matrix_complex_set(scratchMatrix_, sampleN_ + n, sampleN_ + colX, v2p);
+        apply_givens_rotation_(v1, v2, c, s, v1p, v2p);
+        gsl_matrix_complex_set(scratchMatrix_, sampleN_ + n, sampleN_ + rowX, v1p);
+        gsl_matrix_complex_set(scratchMatrix_, sampleN_ + n, sampleN_ + colX, v2p);
       }
-
-      /*
-      if (m == 20) {
-	printf("After annihilating (%d, %d) of A22:\n", rowX, colX);
-	printMatrix_(&A22.matrix);
-	printf("\n");
-	printVector_(&A32.vector);
-	printf("\n");
-      }
-      */
     }
   }
-
-  /*
-  if (m == 20) {
-    printf("Temporal update postarray:\n");
-    printMatrix_(scratchMatrix_);
-    printf("\n");
-  }
-  */
 
   // copy out inverse Cholesky factor and information state vector
   gsl_matrix_complex_memcpy(K_k_[m], &A22.matrix);
   gsl_vector_complex_memcpy(informationState_[m], &A32.vector);
 }
 
-void SquareRootInformationFilterEchoCancellationFeature::observationalUpdate_(unsigned m, const gsl_complex& Ak, double sigma2_v)
+void SquareRootInformationFilterEchoCancellationFeature::observational_update_(unsigned m, const gsl_complex& Ak, double sigma2_v)
 {
   // copy in elements of the pre-array
   gsl_matrix_complex_view A11(gsl_matrix_complex_submatrix(scratchMatrix2_, /* k1= */ 0, /* k2= */ 0, /* n1= */ sampleN_, /* n2= */ sampleN_));
   gsl_matrix_complex_memcpy(&A11.matrix, K_k_[m]);
 
   gsl_vector_complex_view a12(gsl_matrix_complex_subcolumn(scratchMatrix2_, /* colX= */ sampleN_, /* offsetX= */ 0, /* columnsN= */ sampleN_));
-  conjugate_(&a12.vector, buffer_.getSamples(m));
+  conjugate_(&a12.vector, buffer_.get_samples(m));
   double scale = 1.0 / sqrt(sigma2_v);
   for (unsigned n = 0; n < sampleN_; n++) {
     gsl_complex value = gsl_complex_mul_real(gsl_vector_complex_get(&a12.vector, n), scale);
     gsl_vector_complex_set(&a12.vector, n, value);
   }
-
-  /*
-  if (m == 20) {
-    printf("a12=\n");
-    printVector_(&a12.vector);
-    printf("\n");
-  }
-  */
 
   gsl_vector_complex_view a21(gsl_matrix_complex_subrow(scratchMatrix2_, /* rowX= */ sampleN_, /* offsetX= */ 0, /* columnsN= */ sampleN_));
   gsl_vector_complex_memcpy(&a21.vector, informationState_[m]);
@@ -963,20 +744,12 @@ void SquareRootInformationFilterEchoCancellationFeature::observationalUpdate_(un
   gsl_complex Akstar(gsl_complex_mul_real(gsl_complex_conjugate(Ak), scale));
   gsl_matrix_complex_set(scratchMatrix2_, sampleN_, sampleN_, Akstar);
 
-  /*
-  if (m == 20) {
-    printf("Observational update prearray:\n");
-    printMatrix_(scratchMatrix2_);
-    printf("\n");
-  }
-  */
-
   // zero out a12
   for (unsigned rowX = 0; rowX < sampleN_; rowX++) {
     gsl_complex c, s;
     gsl_complex v1 = gsl_matrix_complex_get(&A11.matrix, rowX, rowX);
     gsl_complex v2 = gsl_vector_complex_get(&a12.vector, rowX);
-    gsl_matrix_complex_set(&A11.matrix, rowX, rowX, calcGivensRotation_(v1, v2, c, s));
+    gsl_matrix_complex_set(&A11.matrix, rowX, rowX, calc_givens_rotation_(v1, v2, c, s));
     gsl_vector_complex_set(&a12.vector, rowX, ComplexZero);
 
     for (unsigned n = rowX + 1; n <= sampleN_; n++) {
@@ -984,26 +757,18 @@ void SquareRootInformationFilterEchoCancellationFeature::observationalUpdate_(un
       v1 = gsl_matrix_complex_get(scratchMatrix2_, n, rowX);
       v2 = gsl_matrix_complex_get(scratchMatrix2_, n, sampleN_);
 
-      applyGivensRotation_(v1, v2, c, s, v1p, v2p);
+      apply_givens_rotation_(v1, v2, c, s, v1p, v2p);
       gsl_matrix_complex_set(scratchMatrix2_, n, rowX, v1p);
       gsl_matrix_complex_set(scratchMatrix2_, n, sampleN_, v2p);
     }
   }
-
-  /*
-  if (m == 20) {
-    printf("Observational update postarray:\n");
-    printMatrix_(scratchMatrix2_);
-    printf("\n");
-  }
-  */
 
   // copy out inverse Cholesky factor and information state vector
   gsl_vector_complex_memcpy(informationState_[m], &a21.vector);
   gsl_matrix_complex_memcpy(K_k_[m], &A11.matrix);
 }
 
-void SquareRootInformationFilterEchoCancellationFeature::diagonalLoading_(unsigned m)
+void SquareRootInformationFilterEchoCancellationFeature::diagonal_loading_(unsigned m)
 {
   gsl_matrix_complex* A = K_k_[m];
   for (unsigned diagX = 0; diagX < sampleN_; diagX++) {
@@ -1014,7 +779,7 @@ void SquareRootInformationFilterEchoCancellationFeature::diagonalLoading_(unsign
       gsl_complex c, s;
       gsl_complex v1 = gsl_matrix_complex_get(A, colX, colX);
       gsl_complex v2 = gsl_vector_complex_get(scratch_, colX);
-      gsl_matrix_complex_set(A, colX, colX, calcGivensRotation_(v1, v2, c, s));
+      gsl_matrix_complex_set(A, colX, colX, calc_givens_rotation_(v1, v2, c, s));
       gsl_vector_complex_set(scratch_, colX, ComplexZero_);
 
       for (unsigned rowX = colX + 1; rowX < sampleN_; rowX++) {
@@ -1022,7 +787,7 @@ void SquareRootInformationFilterEchoCancellationFeature::diagonalLoading_(unsign
         v1 = gsl_matrix_complex_get(A, rowX, colX);
         v2 = gsl_vector_complex_get(scratch_, rowX);
 
-        applyGivensRotation_(v1, v2, c, s, v1p, v2p);
+        apply_givens_rotation_(v1, v2, c, s, v1p, v2p);
         gsl_matrix_complex_set(A, rowX, colX, v1p);
         gsl_vector_complex_set(scratch_, rowX, v2p);
       }
@@ -1034,12 +799,13 @@ void SquareRootInformationFilterEchoCancellationFeature::diagonalLoading_(unsign
 // ----- methods for class `DTDBlockKalmanFilterEchoCancellationFeature' -----
 //
 DTDBlockKalmanFilterEchoCancellationFeature::
-DTDBlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					    unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth, double amp4play, const String& nm)
+DTDBlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                            const VectorComplexFeatureStreamPtr& recorded,
+                                            unsigned sampleN, double beta, double sigmau2, double sigmak2, double snrTh, double engTh, double smooth, double amp4play, const String& nm)
   : BlockKalmanFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, amp4play, nm),
     smoothSk_(smooth), smoothEk_(smooth), engTh_(engTh), snr_(0), EkEnergy_(0), SkEnergy_(0), fdb_(NULL)
 {
-  // if debug open 
+  // if debug open
   fdb_ = fopen("/home/wei/src/wav/debug.txt", "w");
 }
 
@@ -1052,7 +818,7 @@ DTDBlockKalmanFilterEchoCancellationFeature::~DTDBlockKalmanFilterEchoCancellati
 }
 
 
-double DTDBlockKalmanFilterEchoCancellationFeature::updateBand_(const gsl_complex Ak, const gsl_complex Ek, int frame_no)
+double DTDBlockKalmanFilterEchoCancellationFeature::update_band_(const gsl_complex Ak, const gsl_complex Ek, int frame_no)
 {
   double smthEk, smthSk;
   // if it is the first 100 frames
@@ -1106,13 +872,13 @@ const gsl_vector_complex* DTDBlockKalmanFilterEchoCancellationFeature::next(int 
 
   const gsl_vector_complex* playBlock	= played_->next(frame_no_ + 1);
   const gsl_vector_complex* recordBlock	= recorded_->next(frame_no_ + 1);
-  buffer_.nextSample(playBlock,amp4play_);
+  buffer_.next_sample(playBlock,amp4play_);
 
   // Ek is stored in the _vector
   for (unsigned m = 0; m <= fftLen2_; m++) {
     gsl_complex Ak = gsl_vector_complex_get(recordBlock, m);
     gsl_vector_complex *Rk = filterCoefficient_[m];
-    const gsl_vector_complex *Vk = buffer_.getSamples(m);
+    const gsl_vector_complex *Vk = buffer_.get_samples(m);
 
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex iprod;
@@ -1126,14 +892,14 @@ const gsl_vector_complex* DTDBlockKalmanFilterEchoCancellationFeature::next(int 
   for (unsigned m = 0; m <= fftLen2_; m++) {
     gsl_complex Ak = gsl_vector_complex_get(recordBlock, m);
     gsl_vector_complex *Rk = filterCoefficient_[m];
-    const gsl_vector_complex *Vk = buffer_.getSamples(m);
+    const gsl_vector_complex *Vk = buffer_.get_samples(m);
 
     // Calculate the residual signal; i.e., the desired speech, which is also the innovation
     gsl_complex Ek = gsl_vector_complex_get(vector_, m);
     gsl_complex iprod;
     gsl_blas_zdotu(Rk, Vk, &iprod);
 
-    double sf = updateBand_(Ak, Ek, frame_no);
+    double sf = update_band_(Ak, Ek, frame_no);
 
     if (sf < 0.0) continue;
 
@@ -1163,9 +929,9 @@ const gsl_vector_complex* DTDBlockKalmanFilterEchoCancellationFeature::next(int 
     gsl_matrix_complex_set_zero(scratchMatrix_);
     for (unsigned rowX = 0; rowX < sampleN_; rowX++) {
       for (unsigned colX = 0; colX < sampleN_; colX++) {
-	gsl_complex diagonal = ((rowX == colX) ? ComplexOne_ : ComplexZero_);
-	gsl_complex value    =  gsl_complex_sub(diagonal, gsl_complex_mul(gsl_vector_complex_get(Gk_, rowX), gsl_vector_complex_get(Vk, colX)));
-	gsl_matrix_complex_set(scratchMatrix_, rowX, colX, value);
+        gsl_complex diagonal = ((rowX == colX) ? ComplexOne_ : ComplexZero_);
+        gsl_complex value    =  gsl_complex_sub(diagonal, gsl_complex_mul(gsl_vector_complex_get(Gk_, rowX), gsl_vector_complex_get(Vk, colX)));
+        gsl_matrix_complex_set(scratchMatrix_, rowX, colX, value);
       }
     }
     gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, ComplexOne_, scratchMatrix_, K_k_k1_, ComplexZero_, K_k_[m]);

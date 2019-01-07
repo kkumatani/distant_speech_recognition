@@ -1,6 +1,6 @@
 /**
  * @file aec.h
- * @brief Cancelation of a voice prompt based on either NLMS or Kalman filter algorithms
+ * @brief Cancelation of a voice prompt based on either NLMS or Kalman filtering algorithms
  * @author John McDonough, Wei Chu and Kenichi Kumatani
  */
 
@@ -145,7 +145,7 @@ class BlockKalmanFilterEchoCancellationFeature : public VectorComplexFeatureStre
         return gsl_vector_complex_get(vec, binX);
       }
 
-      const gsl_vector_complex* getSamples(unsigned m)
+      const gsl_vector_complex* get_samples(unsigned m)
       {
         for (unsigned timeX = 0; timeX < sampleN_; timeX++)
           gsl_vector_complex_set(subbandSamples_, timeX, sample(timeX, m));
@@ -153,7 +153,7 @@ class BlockKalmanFilterEchoCancellationFeature : public VectorComplexFeatureStre
         return subbandSamples_;
       }
 
-      void nextSample(const gsl_vector_complex* s = NULL, double amp4play = 1.0 ) {
+      void next_sample(const gsl_vector_complex* s = NULL, double amp4play = 1.0 ) {
         zero_ = (zero_ + 1) % sampleN_;
 
         gsl_vector_complex* nextBlock = samples_[zero_];
@@ -246,10 +246,10 @@ class InformationFilterEchoCancellationFeature : public BlockKalmanFilterEchoCan
 protected:
   static double _EigenValueThreshold;
 
-  double updateBand_(const gsl_complex Ak, const gsl_complex Ek, int frame_no, unsigned m);
+  double update_band_(const gsl_complex Ak, const gsl_complex Ek, int frame_no, unsigned m);
   void invert_(gsl_matrix_complex* matrix);
-  static void printMatrix_(const gsl_matrix_complex* mat);
-  static void printVector_(const gsl_vector_complex* vec);
+  static void print_matrix_(const gsl_matrix_complex* mat);
+  static void print_vector_(const gsl_vector_complex* vec);
 
   const double                smoothEk_; // for smoothing the error signal, ->1, less smooth
   const double                smoothSk_; // for smoothing the estimated signal
@@ -285,15 +285,15 @@ class SquareRootInformationFilterEchoCancellationFeature : public InformationFil
 
 private:
   const gsl_complex load_;
-  static gsl_complex calcGivensRotation_(const gsl_complex& v1, const gsl_complex& v2, gsl_complex& c, gsl_complex& s);
-  static void applyGivensRotation_(const gsl_complex& v1, const gsl_complex& v2, const gsl_complex& c, const gsl_complex& s,
+  static gsl_complex calc_givens_rotation_(const gsl_complex& v1, const gsl_complex& v2, gsl_complex& c, gsl_complex& s);
+  static void apply_givens_rotation_(const gsl_complex& v1, const gsl_complex& v2, const gsl_complex& c, const gsl_complex& s,
                                    gsl_complex& v1p, gsl_complex& v2p);
   void negative_(gsl_matrix_complex* dest, const gsl_matrix_complex* src);
-  void extractCovarianceState_(const gsl_matrix_complex* K_k, const gsl_vector_complex* sk, gsl_vector_complex* xk);
+  void extract_covariance_state_(const gsl_matrix_complex* K_k, const gsl_vector_complex* sk, gsl_vector_complex* xk);
 
-  void temporalUpdate_(unsigned m);
-  void observationalUpdate_(unsigned m, const gsl_complex& Ak, double sigma2_v);
-  void diagonalLoading_(unsigned m);
+  void temporal_update_(unsigned m);
+  void observational_update_(unsigned m, const gsl_complex& Ak, double sigma2_v);
+  void diagonal_loading_(unsigned m);
 
   gsl_vector_complex**                                informationState_;
 };
@@ -311,7 +311,7 @@ class DTDBlockKalmanFilterEchoCancellationFeature : public BlockKalmanFilterEcho
   virtual const gsl_vector_complex* next(int frame_no = -5);
 
 private:
-  double updateBand_(const gsl_complex Ak, const gsl_complex Ek, int frame_no);
+  double update_band_(const gsl_complex Ak, const gsl_complex Ek, int frame_no);
   void conjugate_(gsl_vector_complex* dest, const gsl_vector_complex* src) const;
 
   const double        smoothSk_; // for smoothing the estimated signal

@@ -1,6 +1,6 @@
 /**
  * @file aec.i
- * @brief Acoustic echo cancelation based on either NLMS or Kalman filter algorithms
+ * @brief Acoustic echo cancelation based on either NLMS or Kalman filtering algorithms
  * @author John McDonough, Wei Chu and Kenichi Kumatani
  */
 
@@ -50,8 +50,12 @@ class NLMSAcousticEchoCancellationFeature : public VectorComplexFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  NLMSAcousticEchoCancellationFeature(const VectorComplexFeatureStreamPtr& original, const VectorComplexFeatureStreamPtr& distorted,
-				  double delta = 100.0, double epsilon = 1.0E-04, double threshold = 100.0, const String& nm = "AEC");
+  NLMSAcousticEchoCancellationFeature(const VectorComplexFeatureStreamPtr& original,
+                                      const VectorComplexFeatureStreamPtr& distorted,
+                                      double delta = 100.0,
+                                      double epsilon = 1.0E-04,
+                                      double threshold = 100.0,
+                                      const String& nm = "AEC");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -86,7 +90,12 @@ class KalmanFilterEchoCancellationFeature : public VectorComplexFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  KalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded, double beta = 0.95, double sigmau2 = 10e-4, double sigma2 = 5.0, double threshold = 100.0, const String& nm = "KFEchoCanceller");
+  KalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                      const VectorComplexFeatureStreamPtr& recorded,
+                                      double beta = 0.95,
+                                      double sigma2 = 100.0,
+                                      double threshold = 100.0,
+                                      const String& nm = "KFEchoCanceller");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -99,10 +108,8 @@ class KalmanFilterEchoCancellationFeaturePtr : public VectorComplexFeatureStream
     KalmanFilterEchoCancellationFeaturePtr(const VectorComplexFeatureStreamPtr& played,
                                            const VectorComplexFeatureStreamPtr& recorded,
                                            double beta = 0.95,
-                                           double sigmau2 = 10e-4,
-                                           double sigma2 = 5.0,
+                                           double sigma2 = 100.0,
                                            double threshold = 100.0,
-                                           double crossCorrTh = 0.5,
                                            const String& nm = "KFEchoCanceller")
     {
       return new KalmanFilterEchoCancellationFeaturePtr(new KalmanFilterEchoCancellationFeature(played, recorded, beta, sigma2, threshold, nm));
@@ -124,10 +131,15 @@ class BlockKalmanFilterEchoCancellationFeature : public VectorComplexFeatureStre
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  BlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					   unsigned sampleN = 1, double beta = 0.95, double sigmau2 = 10e-4, double sigmak2 = 5.0, double threshold = 100.0,
-					   double amp4play = 1.0,
-					   const String& nm = "BlockKFEchoCanceller");
+  BlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                           const VectorComplexFeatureStreamPtr& recorded,
+                                           unsigned sampleN = 1,
+                                           double beta = 0.95,
+                                           double sigmau2 = 10e-4,
+                                           double sigmak2 = 5.0,
+                                           double threshold = 100.0,
+                                           double amp4play = 1.0,
+                                           const String& nm = "BlockKFEchoCanceller");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -139,14 +151,14 @@ class BlockKalmanFilterEchoCancellationFeaturePtr : public VectorComplexFeatureS
   %extend {
     BlockKalmanFilterEchoCancellationFeaturePtr(const VectorComplexFeatureStreamPtr& played,
                                                 const VectorComplexFeatureStreamPtr& recorded,
-                                                unsigned sampleN = 1,
+                                                unsigned sample_num = 1,
                                                 double beta = 0.95,
                                                 double sigmau2 = 10e-4,
                                                 double sigmak2 = 5.0,
                                                 double threshold = 100.0,
                                                 double amp4play = 1.0,
                                                 const String& nm = "BlockKFEchoCanceller") {
-      return new BlockKalmanFilterEchoCancellationFeaturePtr(new BlockKalmanFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, threshold, amp4play, nm));
+      return new BlockKalmanFilterEchoCancellationFeaturePtr(new BlockKalmanFilterEchoCancellationFeature(played, recorded, sample_num, beta, sigmau2, sigmak2, threshold, amp4play, nm));
     }
 
     BlockKalmanFilterEchoCancellationFeaturePtr __iter__() {
@@ -165,11 +177,18 @@ class InformationFilterEchoCancellationFeature : public BlockKalmanFilterEchoCan
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  InformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					   unsigned sampleN = 1, double beta = 0.95, double sigmau2 = 10e-4, double sigmak2 = 5.0, double snrTh = 2.0,
-					   double engTh = 100.0, double smooth = 0.9, double loading = 1.0e-02,
-					   double amp4play = 1.0,
-					   const String& nm = "DTDBlockKFEchoCanceller");
+  InformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                           const VectorComplexFeatureStreamPtr& recorded,
+                                           unsigned sampleN = 1,
+                                           double beta = 0.95,
+                                           double sigmau2 = 10e-4,
+                                           double sigmak2 = 5.0,
+                                           double snrTh = 2.0,
+                                           double engTh = 100.0,
+                                           double smooth = 0.9,
+                                           double loading = 1.0e-02,
+                                           double amp4play = 1.0,
+                                           const String& nm = "DTDBlockKFEchoCanceller");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -181,17 +200,17 @@ class InformationFilterEchoCancellationFeaturePtr : public BlockKalmanFilterEcho
   %extend {
     InformationFilterEchoCancellationFeaturePtr(const VectorComplexFeatureStreamPtr& played,
                                                 const VectorComplexFeatureStreamPtr& recorded,
-                                                unsigned sampleN = 1,
+                                                unsigned sample_num = 1,
                                                 double beta = 0.95,
                                                 double sigmau2 = 10e-4,
                                                 double sigmak2 = 5.0,
-                                                double snrTh = 2.0,
-                                                double engTh = 100.0,
+                                                double snr_threshold = 2.0,
+                                                double energy_threshold = 100.0,
                                                 double smooth = 0.9,
                                                 double loading = 1.0e-02,
                                                 double amp4play = 1.0,
                                                 const String& nm = "DTDBlockKFEchoCanceller") {
-      return new InformationFilterEchoCancellationFeaturePtr(new InformationFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, engTh, smooth, loading, amp4play, nm));
+      return new InformationFilterEchoCancellationFeaturePtr(new InformationFilterEchoCancellationFeature(played, recorded, sample_num, beta, sigmau2, sigmak2, snr_threshold, energy_threshold, smooth, loading, amp4play, nm));
     }
 
     InformationFilterEchoCancellationFeaturePtr __iter__() {
@@ -210,11 +229,18 @@ class SquareRootInformationFilterEchoCancellationFeature : public InformationFil
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  SquareRootInformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-						     unsigned sampleN = 1, double beta = 0.95, double sigmau2 = 10e-4, double sigmak2 = 5.0, double snrTh = 2.0,
-						     double engTh = 100.0, double smooth = 0.9, double loading = 1.0e-02,
+  SquareRootInformationFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                                     const VectorComplexFeatureStreamPtr& recorded,
+                                                     unsigned sampleN = 1,
+                                                     double beta = 0.95,
+                                                     double sigmau2 = 10e-4,
+                                                     double sigmak2 = 5.0,
+                                                     double snrTh = 2.0,
+                                                     double engTh = 100.0,
+                                                     double smooth = 0.9,
+                                                     double loading = 1.0e-02,
                                                      double amp4play = 1.0,
-						     const String& nm = "Square Root Information Filter Echo Cancellation Feature");
+                                                     const String& nm = "Square Root Information Filter Echo Cancellation Feature");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -226,17 +252,17 @@ class SquareRootInformationFilterEchoCancellationFeaturePtr : public Information
   %extend {
     SquareRootInformationFilterEchoCancellationFeaturePtr(const VectorComplexFeatureStreamPtr& played,
                                                           const VectorComplexFeatureStreamPtr& recorded,
-                                                          unsigned sampleN = 1,
+                                                          unsigned sample_num = 1,
                                                           double beta = 0.95,
                                                           double sigmau2 = 10e-4,
                                                           double sigmak2 = 5.0,
-                                                          double snrTh = 2.0,
-                                                          double engTh = 100.0,
+                                                          double snr_threshold = 2.0,
+                                                          double energy_threshold = 100.0,
                                                           double smooth = 0.9,
                                                           double loading = 1.0e-02,
                                                           double amp4play = 1.0,
                                                           const String& nm = "Square Root Information Filter Echo Cancellation Feature") {
-      return new SquareRootInformationFilterEchoCancellationFeaturePtr(new SquareRootInformationFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, engTh, smooth, loading, amp4play, nm));
+      return new SquareRootInformationFilterEchoCancellationFeaturePtr(new SquareRootInformationFilterEchoCancellationFeature(played, recorded, sample_num, beta, sigmau2, sigmak2, snr_threshold, energy_threshold, smooth, loading, amp4play, nm));
     }
 
     SquareRootInformationFilterEchoCancellationFeaturePtr __iter__() {
@@ -255,11 +281,17 @@ class DTDBlockKalmanFilterEchoCancellationFeature : public BlockKalmanFilterEcho
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  DTDBlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played, const VectorComplexFeatureStreamPtr& recorded,
-					      unsigned sampleN = 1, double beta = 0.95, double sigmau2 = 10e-4, double sigmak2 = 5.0, double snrTh = 2.0,
-					      double engTh = 100.0, double smooth = 0.9,
-					      double amp4play = 1.0,
-					      const String& nm = "DTDBlockKFEchoCanceller");
+  DTDBlockKalmanFilterEchoCancellationFeature(const VectorComplexFeatureStreamPtr& played,
+                                              const VectorComplexFeatureStreamPtr& recorded,
+                                              unsigned sampleN = 1,
+                                              double beta = 0.95,
+                                              double sigmau2 = 10e-4,
+                                              double sigmak2 = 5.0,
+                                              double snrTh = 2.0,
+                                              double engTh = 100.0,
+                                              double smooth = 0.9,
+                                              double amp4play = 1.0,
+                                              const String& nm = "DTDBlockKFEchoCanceller");
 
   const gsl_vector_complex* next(int frame_no = -5) const;
   void reset();
@@ -271,16 +303,16 @@ class DTDBlockKalmanFilterEchoCancellationFeaturePtr : public BlockKalmanFilterE
   %extend {
     DTDBlockKalmanFilterEchoCancellationFeaturePtr(const VectorComplexFeatureStreamPtr& played,
                                                    const VectorComplexFeatureStreamPtr& recorded,
-                                                   unsigned sampleN = 1,
+                                                   unsigned sample_num = 1,
                                                    double beta = 0.95,
                                                    double sigmau2 = 10e-4,
                                                    double sigmak2 = 5.0,
-                                                   double snrTh = 2.0,
-                                                   double engTh = 100.0,
+                                                   double snr_threshold = 2.0,
+                                                   double energy_threshold = 100.0,
                                                    double smooth = 0.9,
                                                    double amp4play = 1.0,
                                                    const String& nm = "DTDBlockKFEchoCanceller") {
-      return new DTDBlockKalmanFilterEchoCancellationFeaturePtr(new DTDBlockKalmanFilterEchoCancellationFeature(played, recorded, sampleN, beta, sigmau2, sigmak2, snrTh, engTh, smooth, amp4play, nm));
+      return new DTDBlockKalmanFilterEchoCancellationFeaturePtr(new DTDBlockKalmanFilterEchoCancellationFeature(played, recorded, sample_num, beta, sigmau2, sigmak2, snr_threshold, energy_threshold, smooth, amp4play, nm));
     }
 
     DTDBlockKalmanFilterEchoCancellationFeaturePtr __iter__() {
