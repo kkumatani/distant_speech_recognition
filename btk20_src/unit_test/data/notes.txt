@@ -1,0 +1,6 @@
+Audio files for unit test
+
+speech_at_20sec.wav: Speech present from 20 second
+lt.wav: "Five Nights at Freddy's 1 Song - The Living Tombstone" downloaded on https://freemp3downloads.online
+reverb_lt.wav: synthesized reverberant music
+speech_white_noise_and_reverb_lt.wav: mixture of speech_at_20sec.wav and reverb_lt.wav
