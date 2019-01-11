@@ -89,6 +89,7 @@ class OverSampledDFTAnalysisBank : public VectorComplexFeatureStream {
   %feature("kwargs") fftLen;
   %feature("kwargs") nBlocks;
   %feature("kwargs") subsamplerate;
+  %feature("kwargs") frame_no;
 #ifdef ENABLE_LEGACY_BTK_API
   %feature("kwargs") subSampRate;
 #endif
@@ -104,6 +105,7 @@ class OverSampledDFTAnalysisBank : public VectorComplexFeatureStream {
   unsigned fftLen() const;
   unsigned nBlocks() const;
   unsigned subsamplerate() const;
+  int frame_no() const;
 
 #ifdef ENABLE_LEGACY_BTK_API
   unsigned subSampRate() const;

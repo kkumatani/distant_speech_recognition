@@ -41,7 +41,10 @@ class SingleChannelWPEDereverberationFeature : public VectorComplexFeatureStream
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
+  unsigned estimate_filter(int start_frame_no = 0, int frame_num = -1);
+  void reset_filter();
   void next_speaker();
+  void print_objective_func(int subbandX){ printing_subbandX_ = subbandX;}
 
 #ifdef ENABLE_LEGACY_BTK_API
   void nextSpeaker(){ next_speaker(); }
@@ -50,7 +53,7 @@ class SingleChannelWPEDereverberationFeature : public VectorComplexFeatureStream
 private:
   static const double					subband_floor_;
 
-  void fill_buffer_();
+  void fill_buffer_(int start_frame_no, int frame_num);
   void estimate_Gn_();
   void calc_Rr_(unsigned subbandX);
   void calc_Thetan_();
@@ -64,18 +67,19 @@ private:
   const unsigned					upperN_;
   const unsigned					predictionN_;
   const unsigned					iterationsN_;
-  bool							first_frame_;
-  unsigned						framesN_;
+  bool							estimated_;
+  unsigned						framesN_; // no frames used for filter estimation
   const double						load_factor_;
   const unsigned					lower_bandWidthN_;
   const unsigned					upper_bandWidthN_;
 
-  Samples_						yn_;
+  Samples_						yn_; // buffer to keep observations
   gsl_matrix*						thetan_;
   gsl_vector_complex**					gn_;
   gsl_matrix_complex*					R_;
   gsl_vector_complex*					r_;
   gsl_vector_complex*					lag_samples_;
+  int                                                   printing_subbandX_;
 };
 
 typedef Inherit<SingleChannelWPEDereverberationFeature, VectorComplexFeatureStreamPtr> SingleChannelWPEDereverberationFeaturePtr;
@@ -94,26 +98,31 @@ class MultiChannelWPEDereverberation : public Countable {
   typedef FrameBraceList_::iterator			FrameBraceListIterator_;
 
  public:
-  MultiChannelWPEDereverberation(unsigned subbandsN, unsigned channelsN, unsigned lowerN, unsigned upperN, unsigned iterationsN = 2, double loadDb = -20.0, double bandWidth = 0.0,  double sampleRate = 16000.0);
+  MultiChannelWPEDereverberation(unsigned subbandsN, unsigned channelsN, unsigned lowerN, unsigned upperN, unsigned iterationsN = 2, double loadDb = -20.0, double bandWidth = 0.0, double diagonal_bias = 0.0, double sampleRate = 16000.0);
 
   ~MultiChannelWPEDereverberation();
 
   void reset();
   unsigned size() const { return subbandsN_; }
   void set_input(VectorComplexFeatureStreamPtr& samples);
-  const gsl_vector_complex* get_output(unsigned channelX, int frame_no = -5);
+  const gsl_vector_complex* get_output(unsigned channelX);
+  gsl_vector_complex** calc_every_channel_output(int frame_no = -5);
+  unsigned estimate_filter(int start_frame_no = 0, int frame_num = -1);
+  void reset_filter();
   void next_speaker();
+  int  frame_no() const { return frame_no_; }
+  void print_objective_func(int subbandX){ printing_subbandX_ = subbandX;}
 
 #ifdef ENABLE_LEGACY_BTK_API
   void setInput(VectorComplexFeatureStreamPtr& samples){ set_input(samples); }
-  const gsl_vector_complex* getOutput(unsigned channelX, int frame_no = -5){ return get_output(channelX, frame_no); }
+  const gsl_vector_complex* getOutput(unsigned channelX, int frame_no = -5){ return get_output(channelX); }
   void nextSpeaker(){ next_speaker(); }
 #endif
 
 private:
   static const double					subband_floor_;
 
-  void fill_buffer_();
+  void fill_buffer_(int start_frame_no, int frame_num);
   void estimate_Gn_();
   void calc_Rr_(unsigned subbandX);
   void calc_Thetan_();
@@ -132,7 +141,7 @@ private:
   const unsigned					iterationsN_;
   const unsigned					totalPredictionN_;
 
-  bool							first_frame_;
+  bool							estimated_;
   unsigned						framesN_;
   const double						load_factor_;
   const unsigned					lower_bandWidthN_;
@@ -148,6 +157,9 @@ private:
 
   const int						initial_frame_no_;
   int							frame_no_;
+
+  const double                                          diagonal_bias_;
+  int                                                   printing_subbandX_;
 };
 
 typedef refcountable_ptr<MultiChannelWPEDereverberation> MultiChannelWPEDereverberationPtr;
@@ -157,7 +169,7 @@ typedef refcountable_ptr<MultiChannelWPEDereverberation> MultiChannelWPEDereverb
 //
 class MultiChannelWPEDereverberationFeature : public VectorComplexFeatureStream {
 public:
-  MultiChannelWPEDereverberationFeature(MultiChannelWPEDereverberationPtr& source, unsigned channelX, const String& nm = "MultiChannelWPEDereverberationFeature");
+  MultiChannelWPEDereverberationFeature(MultiChannelWPEDereverberationPtr& source, unsigned channelX, unsigned primaryChannelX = 0, const String& nm = "MultiChannelWPEDereverberationFeature");
 
   ~MultiChannelWPEDereverberationFeature();
 
@@ -167,6 +179,7 @@ public:
 private:
   MultiChannelWPEDereverberationPtr			source_;
   const unsigned					channelX_;
+  const unsigned					primaryChannelX_; // compute the dereverbed output only when channelX_ == primaryChannelX_. Otherwise copy the precomputed output
 };
 
 typedef Inherit<MultiChannelWPEDereverberationFeature, VectorComplexFeatureStreamPtr> MultiChannelWPEDereverberationFeaturePtr;

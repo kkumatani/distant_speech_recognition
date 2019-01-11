@@ -282,6 +282,7 @@ class OverSampledDFTAnalysisBank
   unsigned subSampRate() const { return subsamplerate(); }
 #endif
   bool is_end(){return is_end_;}
+  int frame_no() const { return frame_no_; }
 
   using OverSampledDFTFilterBank::polyphase;
 
