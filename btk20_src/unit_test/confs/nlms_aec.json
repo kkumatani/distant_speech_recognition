@@ -1,0 +1,4 @@
+	{ "type":"nlms", 
+           "energy_threshold":100,
+           "delta":100,
+           "epsilon":10E-4}

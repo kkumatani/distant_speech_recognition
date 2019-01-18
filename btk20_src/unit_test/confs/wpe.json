@@ -1,0 +1,7 @@
+{"lower_num":0,
+ "upper_num":32,
+ "iterations_num":2, 
+ "load_db": -18.0, 
+ "band_width":0.0, 
+ "diagonal_bias":0.0001 
+}
