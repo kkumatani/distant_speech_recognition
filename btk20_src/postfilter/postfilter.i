@@ -76,8 +76,8 @@ class ZelinskiPostFilterPtr: public VectorComplexFeatureStreamPtr {
   %feature("kwargs") ZelinskiPostFilterPtr;
 public:
   %extend {
-    ZelinskiPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned M, double alpha=0.6, int type=2, unsigned minFrames=0, const String& nm = "ZelinskPostFilter" ){
-      return new ZelinskiPostFilterPtr(new ZelinskiPostFilter( output, M, alpha, type, minFrames, nm));
+    ZelinskiPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned M, double alpha=0.6, int type=2, unsigned min_frames=0, const String& nm = "ZelinskPostFilter" ){
+      return new ZelinskiPostFilterPtr(new ZelinskiPostFilter( output, M, alpha, type, min_frames, nm));
     }
 
     ZelinskiPostFilterPtr __iter__() {
@@ -140,8 +140,8 @@ class McCowanPostFilterPtr: public ZelinskiPostFilterPtr {
   %feature("kwargs") McCowanPostFilterPtr;
 public:
   %extend {
-    McCowanPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned fftLen, double alpha=0.6, int type=2, unsigned minFrames=0, float threshold=0.99, const String& nm = "McCowanPostFilterPtr" ){
-      return new McCowanPostFilterPtr(new McCowanPostFilter( output, fftLen, alpha, type, minFrames, threshold, nm));
+    McCowanPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned fftlen, double alpha=0.6, int type=2, unsigned min_frames=0, float threshold=0.99, const String& nm = "McCowanPostFilterPtr" ){
+      return new McCowanPostFilterPtr(new McCowanPostFilter( output, fftlen, alpha, type, min_frames, threshold, nm));
     }
 
     McCowanPostFilterPtr __iter__() {
@@ -175,8 +175,8 @@ class LefkimmiatisPostFilterPtr: public McCowanPostFilterPtr {
   %feature("kwargs") LefkimmiatisPostFilterPtr;
 public:
   %extend {
-    LefkimmiatisPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned fftLen, double minSV=1.0E-8, unsigned fbinX1=0, double alpha=0.6, int type=2, unsigned minFrames=0, float threshold=0.99, const String& nm = "LefkimmiatisPostFilterPtr" ){
-      return new LefkimmiatisPostFilterPtr(new LefkimmiatisPostFilter( output, fftLen, minSV, fbinX1, alpha, type, minFrames, threshold, nm));
+    LefkimmiatisPostFilterPtr( VectorComplexFeatureStreamPtr &output, unsigned fftlen, double min_sv=1.0E-8, unsigned fbin_no1=0, double alpha=0.6, int type=2, unsigned min_frames=0, float threshold=0.99, const String& nm = "LefkimmiatisPostFilterPtr" ){
+      return new LefkimmiatisPostFilterPtr(new LefkimmiatisPostFilter(output, fftlen, min_sv, fbin_no1, alpha, type, min_frames, threshold, nm));
     }
 
     LefkimmiatisPostFilterPtr __iter__() {
@@ -306,8 +306,8 @@ class HighPassFilterPtr : public VectorComplexFeatureStreamPtr {
   %feature("kwargs") HighPassFilterPtr;
  public:
   %extend {
-    HighPassFilterPtr( VectorComplexFeatureStreamPtr &output, float cutOffFreq, int sampleRate, const String& nm = "HighPassFilter" ){
-      return new HighPassFilterPtr(new HighPassFilter( output, cutOffFreq, sampleRate, nm));
+    HighPassFilterPtr( VectorComplexFeatureStreamPtr &output, float cut_off_freq, int samplerate, const String& nm = "HighPassFilter" ){
+      return new HighPassFilterPtr(new HighPassFilter(output, cut_off_freq, samplerate, nm));
     }
 
     HighPassFilterPtr __iter__() {
@@ -500,10 +500,12 @@ class IIDThresholdEstimatorPtr : public KimITDThresholdEstimatorPtr {
   %feature("kwargs") IIDThresholdEstimatorPtr;
 public:
   %extend {
-    IIDThresholdEstimatorPtr( VectorComplexFeatureStreamPtr &srcL, VectorComplexFeatureStreamPtr &srcR, unsigned M,
-			      float minThreshold = 0, float maxThreshold = 0, float width = 0.02,
-			      float minFreq= -1, float maxFreq=-1, int sampleRate=-1, float dEta = 0.01, float dPowerCoeff = 1/15, const String& nm = "IIDThresholdEstimator" ){
-      return new IIDThresholdEstimatorPtr( new IIDThresholdEstimator( srcL, srcR, M, minThreshold, maxThreshold, width, minFreq, maxFreq, sampleRate, dEta, dPowerCoeff, nm ) );
+    IIDThresholdEstimatorPtr( VectorComplexFeatureStreamPtr &srcL,
+                              VectorComplexFeatureStreamPtr &srcR,
+                              unsigned M,
+                              float minThreshold = 0, float maxThreshold = 0, float width = 0.02,
+                              float minFreq= -1, float maxFreq=-1, int sampleRate=-1, float dEta = 0.01, float dPowerCoeff = 1/15, const String& nm = "IIDThresholdEstimator" ){
+      return new IIDThresholdEstimatorPtr( new IIDThresholdEstimator(srcL, srcR, M, minThreshold, maxThreshold, width, minFreq, maxFreq, sampleRate, dEta, dPowerCoeff, nm ));
     }
 
     IIDThresholdEstimatorPtr __iter__() {
@@ -543,8 +545,8 @@ class FDIIDThresholdEstimatorPtr : public BinaryMaskFilterPtr {
   %feature("kwargs") FDIIDThresholdEstimatorPtr;
 public:
   %extend {
-    FDIIDThresholdEstimatorPtr( VectorComplexFeatureStreamPtr &srcL, VectorComplexFeatureStreamPtr &srcR, unsigned M, float minThreshold = 0, float maxThreshold = 0, float width = 1000, float dEta = 0.01, float dPowerCoeff = 1/15, const String& nm = "FDIIDThresholdEstimator" ){
-      return new FDIIDThresholdEstimatorPtr( new FDIIDThresholdEstimator( srcL, srcR, M, minThreshold, maxThreshold, width, dEta, dPowerCoeff, nm) );
+    FDIIDThresholdEstimatorPtr( VectorComplexFeatureStreamPtr &src_left, VectorComplexFeatureStreamPtr &src_right, unsigned M, float min_threshold = 0, float max_threshold = 0, float width = 1000, float deta = 0.01, float dpowercoeff = 1/15, const String& nm = "FDIIDThresholdEstimator" ){
+      return new FDIIDThresholdEstimatorPtr( new FDIIDThresholdEstimator(src_left, src_right, M, min_threshold, max_threshold, width, deta, dpowercoeff, nm) );
     }
 
     FDIIDThresholdEstimatorPtr __iter__() {

@@ -72,8 +72,8 @@ class SnapShotArrayPtr {
   %feature("kwargs") SnapShotArrayPtr;
  public:
   %extend {
-    SnapShotArrayPtr(unsigned fftLn, unsigned nChn) {
-      return new SnapShotArrayPtr(new SnapShotArray(fftLn, nChn));
+    SnapShotArrayPtr(unsigned fftlen, unsigned chan_num) {
+      return new SnapShotArrayPtr(new SnapShotArray(fftlen, chan_num));
     }
   }
 
@@ -126,7 +126,7 @@ class SubbandBeamformer : public VectorComplexFeatureStream {
   %feature("kwargs") setChannel;
 #endif
  public:
-  SubbandBeamformer(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandBeamformer");
+  SubbandBeamformer(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandBeamformer");
   ~SubbandBeamformer();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -153,8 +153,8 @@ class SubbandBeamformerPtr : public VectorComplexFeatureStreamPtr {
   %feature("kwargs") SubbandBeamformerPtr;
  public:
   %extend {
-    SubbandBeamformerPtr(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandBeamformer") {
-       return new SubbandBeamformerPtr(new SubbandBeamformer(fftLen, halfBandShift, nm));
+    SubbandBeamformerPtr(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandBeamformer") {
+       return new SubbandBeamformerPtr(new SubbandBeamformer(fftlen, half_band_shift, nm));
     }
 
     SubbandBeamformerPtr __iter__() {
@@ -183,7 +183,7 @@ class SubbandDS : public SubbandBeamformer {
   %feature("kwargs") calcArrayManifoldVectorsN;
 #endif
 public:
-  SubbandDS(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandDS");
+  SubbandDS(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandDS");
   ~SubbandDS();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -192,17 +192,17 @@ public:
   virtual void clear_channel();
   virtual const gsl_vector_complex *get_weights(unsigned fbinX);
 
-  virtual void calc_array_manifold_vectors(float sampleRate, const gsl_vector* delays);
-  virtual void calc_array_manifold_vectors_2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
-  virtual void calc_array_manifold_vectors_n(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
+  virtual void calc_array_manifold_vectors(float samplerate, const gsl_vector* delays);
+  virtual void calc_array_manifold_vectors_2(float samplerate, const gsl_vector* delays_t, const gsl_vector* delays_j);
+  virtual void calc_array_manifold_vectors_n(float samplerate, const gsl_vector* delays_t, const gsl_matrix* delays_j, unsigned NC=2);
 
 #ifdef ENABLE_LEGACY_BTK_API
   virtual void clearChannel();
   virtual const gsl_vector_complex *getWeights(unsigned fbinX);
   virtual BeamformerWeights* getBeamformerWeightObject(unsigned srcX=0) const { return beamformer_weight_object(srcX); }
-  virtual void calcArrayManifoldVectors(float sampleRate, const gsl_vector* delays);
-  virtual void calcArrayManifoldVectors2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ );
-  virtual void calcArrayManifoldVectorsN(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, int NC );
+  virtual void calcArrayManifoldVectors(float samplerate, const gsl_vector* delays);
+  virtual void calcArrayManifoldVectors2(float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ );
+  virtual void calcArrayManifoldVectorsN(float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, int NC );
 #endif
 };
 
@@ -210,8 +210,8 @@ class SubbandDSPtr : public SubbandBeamformerPtr {
   %feature("kwargs") SubbandDSPtr;
  public:
   %extend {
-    SubbandDSPtr(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandDS") {
-      return new SubbandDSPtr(new SubbandDS(fftLen, halfBandShift, nm));
+    SubbandDSPtr(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandDS") {
+      return new SubbandDSPtr(new SubbandDS(fftlen, half_band_shift, nm));
     }
 
     SubbandDSPtr __iter__() {
@@ -244,7 +244,7 @@ class SubbandGSC : public SubbandDS {
   %feature("kwargs") getBlockingMatrix;
 #endif
  public:
- SubbandGSC(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandGSC");
+ SubbandGSC(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandGSC");
   ~SubbandGSC();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -253,9 +253,9 @@ class SubbandGSC : public SubbandDS {
   void set_quiescent_weights_f(unsigned fbinX, const gsl_vector_complex * srcWq);
   void set_active_weights_f(unsigned fbinX, const gsl_vector* packedWeight);
   void zero_active_weights();
-  void calc_gsc_weights(float sampleRate, const gsl_vector* delaysT);
-  void calc_gsc_weights_2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
-  void calc_gsc_weights_n(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
+  void calc_gsc_weights(float samplerate, const gsl_vector* delaysT);
+  void calc_gsc_weights_2(float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
+  void calc_gsc_weights_n(float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
   bool write_fir_coeff( const String& fn, unsigned winType=1 );
 
 #ifdef ENABLE_LEGACY_BTK_API
@@ -274,8 +274,8 @@ class SubbandGSCPtr : public SubbandDSPtr {
   %feature("kwargs") SubbandGSCPtr;
  public:
   %extend {
-    SubbandGSCPtr(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandGSC") {
-      return new SubbandGSCPtr(new SubbandGSC(fftLen, halfBandShift, nm));
+    SubbandGSCPtr(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandGSC") {
+      return new SubbandGSCPtr(new SubbandGSC(fftlen, half_band_shift, nm));
     }
 
     SubbandGSCPtr __iter__() {
@@ -303,7 +303,7 @@ class SubbandGSCRLS : public SubbandGSC {
   %feature("kwargs") setQuadraticConstraint;
 #endif
  public:
- SubbandGSCRLS(unsigned fftLen = 512, bool halfBandShift = false, float myu = 0.9, float sigma2=0.0, const String& nm = "SubbandGSCRLS");
+ SubbandGSCRLS(unsigned fftlen, bool half_band_shift = false, float myu = 0.9, float sigma2=0.0, const String& nm = "SubbandGSCRLS");
   ~SubbandGSCRLS();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -326,8 +326,8 @@ class SubbandGSCRLSPtr : public SubbandGSCPtr {
   %feature("kwargs") SubbandGSCRLSPtr;
  public:
   %extend {
-    SubbandGSCRLSPtr( unsigned fftLen = 512, bool halfBandShift = false, float myu = 0.9, float sigma2=0.01, const String& nm = "SubbandGSCRLS") {
-      return new SubbandGSCRLSPtr(new SubbandGSCRLS(fftLen, halfBandShift, myu, sigma2, nm));
+    SubbandGSCRLSPtr( unsigned fftlen, bool half_band_shift = false, float myu = 0.9, float sigma2=0.01, const String& nm = "SubbandGSCRLS") {
+      return new SubbandGSCRLSPtr(new SubbandGSCRLS(fftlen, half_band_shift, myu, sigma2, nm));
     }
 
     SubbandGSCRLSPtr __iter__() {
@@ -357,15 +357,15 @@ class SubbandMMI : public SubbandDS {
   %feature("kwargs") setActiveWeights_f;
 #endif
  public:
-  SubbandMMI(unsigned fftLen = 512, bool halfBandShift = false, unsigned targetSourceX=0, unsigned nSource=2, int pfType=0, float alpha=0.9, const String& nm = "SubbandMMI");
+  SubbandMMI(unsigned fftlen, bool half_band_shift = false, unsigned targetSourceX=0, unsigned nSource=2, int pfType=0, float alpha=0.9, const String& nm = "SubbandMMI");
   ~SubbandMMI();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
 
   void use_binary_mask(float avgFactor=-1.0, unsigned fwidth=1, unsigned type=0);
-  void calc_weights(  float sampleRate, const gsl_matrix* delays);
-  void calc_weights_n( float sampleRate, const gsl_matrix* delays, unsigned NC=2);
+  void calc_weights(  float samplerate, const gsl_matrix* delays);
+  void calc_weights_n( float samplerate, const gsl_matrix* delays, unsigned NC=2);
   void set_hi_active_weights_f(unsigned fbinX, const gsl_vector* pkdWa, const gsl_vector* pkdwb, int option=0);
   void set_active_weights_f(unsigned fbinX, const gsl_matrix* packedWeights, int option=0);
 
@@ -382,8 +382,8 @@ class SubbandMMIPtr : public SubbandDSPtr {
   %feature("kwargs") SubbandMMIPtr;
  public:
   %extend {
-   SubbandMMIPtr(unsigned fftLen = 512, bool halfBandShift = false, unsigned targetSourceX=0, unsigned nSource=2, int pfType=0, float alpha=0.9, const String& nm = "SubbandMMI") {
-      return new SubbandMMIPtr(new SubbandMMI(fftLen, halfBandShift, targetSourceX, nSource, pfType, alpha, nm));
+   SubbandMMIPtr(unsigned fftlen, bool half_band_shift = false, unsigned targetSourceX=0, unsigned nSource=2, int pfType=0, float alpha=0.9, const String& nm = "SubbandMMI") {
+      return new SubbandMMIPtr(new SubbandMMI(fftlen, half_band_shift, targetSourceX, nSource, pfType, alpha, nm));
     }
 
     SubbandMMIPtr __iter__() {
@@ -437,17 +437,17 @@ class SubbandMVDR : public SubbandDS {
   %feature("kwargs") divideNonDiagonalElements;
 #endif
  public:
-   SubbandMVDR(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandMVDR");
+   SubbandMVDR(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandMVDR");
   ~SubbandMVDR();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
   virtual void clear_channel();
-  bool calc_mvdr_weights(float sampleRate, float dThreshold = 1.0E-8, bool calcInverseMatrix = true);
+  bool calc_mvdr_weights(float samplerate, float dthreshold = 1.0E-8, bool calc_inverse_matrix = true);
   const gsl_vector_complex* mvdir_weights(unsigned fbinX);
   const gsl_matrix_complex *noise_spatial_spectral_matrix(unsigned fbinX);
   bool set_noise_spatial_spectral_matrix(unsigned fbinX, gsl_matrix_complex* Rnn);
-  bool set_diffuse_noise_model(const gsl_matrix* micPositions, float sampleRate, float sspeed = 343740.0);
+  bool set_diffuse_noise_model(const gsl_matrix* micPositions, float samplerate, float sspeed = 343740.0);
   void set_all_diagonal_loading(float diagonalWeight);
   void set_diagonal_looading(unsigned fbinX, float diagonalWeight);
   void divide_all_nondiagonal_elements(float mu);
@@ -473,8 +473,8 @@ class SubbandMVDRPtr : public SubbandDSPtr {
   %feature("kwargs") SubbandMVDRPtr;
  public:
   %extend {
-    SubbandMVDRPtr(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandMVDR"){
-      return new SubbandMVDRPtr(new SubbandMVDR( fftLen, halfBandShift, nm ));
+    SubbandMVDRPtr(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandMVDR"){
+      return new SubbandMVDRPtr(new SubbandMVDR( fftlen, half_band_shift, nm ));
     }
 
     SubbandMVDRPtr __iter__() {
@@ -502,14 +502,14 @@ class SubbandMVDRGSC : public SubbandMVDR {
   %feature("kwargs") calcBlockingMatrix1;
 #endif
  public:
-  SubbandMVDRGSC(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandMVDRGSC");
+  SubbandMVDRGSC(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandMVDRGSC");
   ~SubbandMVDRGSC();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
   void set_active_weights_f(unsigned fbinX, const gsl_vector* packedWeight);
   void zero_active_weights();
-  bool calc_blocking_matrix1(float sampleRate, const gsl_vector* delaysT);
+  bool calc_blocking_matrix1(float samplerate, const gsl_vector* delaysT);
   bool calc_blocking_matrix2();
   void upgrade_blocking_matrix();
   const gsl_vector_complex* blocking_matrix_output(int outChanX=0);
@@ -527,8 +527,8 @@ class SubbandMVDRGSCPtr : public SubbandMVDRPtr {
   %feature("kwargs") SubbandMVDRGSCPtr;
  public:
   %extend {
-    SubbandMVDRGSCPtr(unsigned fftLen = 512, bool halfBandShift = false, const String& nm = "SubbandMVDRGSC"){
-      return new SubbandMVDRGSCPtr(new SubbandMVDRGSC( fftLen, halfBandShift, nm ));
+    SubbandMVDRGSCPtr(unsigned fftlen, bool half_band_shift = false, const String& nm = "SubbandMVDRGSC"){
+      return new SubbandMVDRGSCPtr(new SubbandMVDRGSC( fftlen, half_band_shift, nm ));
     }
 
     SubbandMVDRGSCPtr __iter__() {
@@ -616,7 +616,7 @@ class EigenBeamformer : public  SubbandDS {
   %feature("kwargs") getBlockingMatrix;
 #endif
 public:
-  EigenBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "EigenBeamformer");
+  EigenBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "EigenBeamformer");
   ~EigenBeamformer();
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
@@ -659,8 +659,8 @@ class EigenBeamformerPtr : public  SubbandDSPtr {
   %feature("kwargs") EigenBeamformerPtr;
 public:
   %extend {
-    EigenBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "EigenBeamformer"){
-      return new EigenBeamformerPtr(new EigenBeamformer( sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, nm ));
+    EigenBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "EigenBeamformer"){
+      return new EigenBeamformerPtr(new EigenBeamformer( samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, nm ));
     }
 
     EigenBeamformerPtr __iter__() {
@@ -729,7 +729,7 @@ class DOAEstimatorSRPDSBLA : public SubbandDS {
   %feature("kwargs") setArrayGeometry;
 #endif
 public:
-  DOAEstimatorSRPDSBLA( unsigned nBest, unsigned sampleRate, unsigned fftLen, const String& nm="DOAEstimatorSRPDSBLAPtr" );
+  DOAEstimatorSRPDSBLA( unsigned nBest, unsigned samplerate, unsigned fftlen, const String& nm="DOAEstimatorSRPDSBLAPtr" );
   ~DOAEstimatorSRPDSBLA();
 
   const gsl_vector_complex* next(int frame_no = -5);
@@ -745,8 +745,8 @@ class DOAEstimatorSRPDSBLAPtr : public SubbandDSPtr {
   %feature("kwargs") DOAEstimatorSRPDSBLAPtr;
 public:
   %extend {
-    DOAEstimatorSRPDSBLAPtr( unsigned nBest, unsigned sampleRate, unsigned fftLen, const String& nm="DOAEstimatorSRPDSBLAPtr" ){
-      return new DOAEstimatorSRPDSBLAPtr( new DOAEstimatorSRPDSBLA( nBest, sampleRate, fftLen, nm ) );
+    DOAEstimatorSRPDSBLAPtr( unsigned nBest, unsigned samplerate, unsigned fftlen, const String& nm="DOAEstimatorSRPDSBLAPtr" ){
+      return new DOAEstimatorSRPDSBLAPtr( new DOAEstimatorSRPDSBLA( nBest, samplerate, fftlen, nm ) );
     }
     DOAEstimatorSRPDSBLAPtr __iter__() {
       (*self)->reset();  return *self;
@@ -763,7 +763,7 @@ class DOAEstimatorSRPEB : public EigenBeamformer {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  DOAEstimatorSRPEB( unsigned nBest, unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB");
+  DOAEstimatorSRPEB( unsigned nBest, unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB");
   ~DOAEstimatorSRPEB();
 
   const gsl_vector_complex* next(int frame_no = -5);
@@ -774,8 +774,8 @@ class DOAEstimatorSRPEBPtr : public EigenBeamformerPtr {
   %feature("kwargs") DOAEstimatorSRPEBPtr;
 public:
   %extend {
-    DOAEstimatorSRPEBPtr( unsigned nBest, unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB" ){
-      return new DOAEstimatorSRPEBPtr( new DOAEstimatorSRPEB( nBest, sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, nm ) );
+    DOAEstimatorSRPEBPtr( unsigned nBest, unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB" ){
+      return new DOAEstimatorSRPEBPtr( new DOAEstimatorSRPEB( nBest, samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, nm ) );
     }
     DOAEstimatorSRPEBPtr __iter__() {
       (*self)->reset();  return *self;
@@ -796,7 +796,7 @@ class SphericalDSBeamformer : public EigenBeamformer {
   %feature("kwargs") calcWNG;
 #endif
 public:
-  SphericalDSBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalDSBeamformer");
+  SphericalDSBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalDSBeamformer");
   ~SphericalDSBeamformer();
   const gsl_vector_complex* next(int frame_no = -5);
   void reset();
@@ -811,8 +811,8 @@ class SphericalDSBeamformerPtr : public EigenBeamformerPtr {
   %feature("kwargs") SphericalDSBeamformerPtr;
 public:
   %extend {
-    SphericalDSBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalDSBeamformer"){
-      return new SphericalDSBeamformerPtr( new SphericalDSBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder,  normalizeWeight, nm ) );
+    SphericalDSBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalDSBeamformer"){
+      return new SphericalDSBeamformerPtr( new SphericalDSBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder,  normalizeWeight, nm ) );
     }
     SphericalDSBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -827,7 +827,7 @@ public:
 %ignore DualSphericalDSBeamformer;
 class DualSphericalDSBeamformer : public SphericalDSBeamformer {
 public:
-  DualSphericalDSBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalDSBeamformer");
+  DualSphericalDSBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalDSBeamformer");
   ~DualSphericalDSBeamformer();
   virtual SnapShotArrayPtr snapshot_array();
 
@@ -840,8 +840,8 @@ class DualSphericalDSBeamformerPtr : public SphericalDSBeamformerPtr {
   %feature("kwargs") DualSphericalDSBeamformerPtr;
 public:
   %extend {
-    DualSphericalDSBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalDSBeamformer"){
-      return new DualSphericalDSBeamformerPtr( new DualSphericalDSBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder,  normalizeWeight, nm ) );
+    DualSphericalDSBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalDSBeamformer"){
+      return new DualSphericalDSBeamformerPtr( new DualSphericalDSBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder,  normalizeWeight, nm ) );
     }
     DualSphericalDSBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -858,7 +858,7 @@ class DOAEstimatorSRPSphDSB : public SphericalDSBeamformer {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  DOAEstimatorSRPSphDSB( unsigned nBest, unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DOAEstimatorSRPSphDSB");
+  DOAEstimatorSRPSphDSB( unsigned nBest, unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DOAEstimatorSRPSphDSB");
   ~DOAEstimatorSRPSphDSB();
   const gsl_vector_complex* next(int frame_no = -5);
   void reset();
@@ -868,8 +868,8 @@ class DOAEstimatorSRPSphDSBPtr : public SphericalDSBeamformerPtr {
   %feature("kwargs") DOAEstimatorSRPSphDSBPtr;
 public:
   %extend {
-    DOAEstimatorSRPSphDSBPtr( unsigned nBest, unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB" ){
-      return new DOAEstimatorSRPSphDSBPtr( new DOAEstimatorSRPSphDSB( nBest, sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, nm ) );
+    DOAEstimatorSRPSphDSBPtr( unsigned nBest, unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=8, bool normalizeWeight=false, const String& nm = "DirectionEstimatorSRPMB" ){
+      return new DOAEstimatorSRPSphDSBPtr( new DOAEstimatorSRPSphDSB( nBest, samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, nm ) );
     }
     DOAEstimatorSRPSphDSBPtr __iter__() {
       (*self)->reset();  return *self;
@@ -892,7 +892,7 @@ class SphericalHWNCBeamformer : public EigenBeamformer {
   %feature("kwargs") setWNG;
 #endif
 public:
-  SphericalHWNCBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalHWNCBeamformer");
+  SphericalHWNCBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalHWNCBeamformer");
   ~SphericalHWNCBeamformer();
   virtual const gsl_vector_complex* next(int frame_no = -5);
   void reset();
@@ -909,8 +909,8 @@ class SphericalHWNCBeamformerPtr : public EigenBeamformerPtr {
   %feature("kwargs") SphericalHWNCBeamformerPtr;
 public:
   %extend {
-    SphericalHWNCBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalHWNCBeamformer"){
-      return new SphericalHWNCBeamformerPtr( new SphericalHWNCBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, ratio, nm ) );
+    SphericalHWNCBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalHWNCBeamformer"){
+      return new SphericalHWNCBeamformerPtr( new SphericalHWNCBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, ratio, nm ) );
     }
     SphericalHWNCBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -933,7 +933,7 @@ class SphericalGSCBeamformer : public SphericalDSBeamformer {
   %feature("kwargs") setActiveWeights_f;
 #endif
 public:
-  SphericalGSCBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalGSCBeamformer");
+  SphericalGSCBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalGSCBeamformer");
   ~SphericalGSCBeamformer();
 
   const gsl_vector_complex* next(int frame_no = -5);
@@ -952,8 +952,8 @@ class SphericalGSCBeamformerPtr : public SphericalDSBeamformerPtr {
   %feature("kwargs") SphericalGSCBeamformerPtr;
 public:
   %extend {
-    SphericalGSCBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalGSCBeamformer" ){
-      return new SphericalGSCBeamformerPtr( new SphericalGSCBeamformer( sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, nm ) );
+    SphericalGSCBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalGSCBeamformer" ){
+      return new SphericalGSCBeamformerPtr( new SphericalGSCBeamformer( samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, nm ) );
     }
     SphericalGSCBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -976,7 +976,7 @@ class SphericalHWNCGSCBeamformer : public SphericalHWNCBeamformer {
   %feature("kwargs") setActiveWeights_f;
 #endif
 public:
-  SphericalHWNCGSCBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, float ratio=1.0, const String& nm = "SphericalHWNCGSCBeamformer");
+  SphericalHWNCGSCBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, float ratio=1.0, const String& nm = "SphericalHWNCGSCBeamformer");
   ~SphericalHWNCGSCBeamformer();
 
   const gsl_vector_complex* next(int frame_no = -5);
@@ -994,8 +994,8 @@ class SphericalHWNCGSCBeamformerPtr : public SphericalHWNCBeamformerPtr {
   %feature("kwargs") SphericalHWNCGSCBeamformerPtr;
 public:
   %extend {
-    SphericalHWNCGSCBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, float ratio=1.0, const String& nm = "SphericalHWNCGSCBeamformer" ){
-      return new SphericalHWNCGSCBeamformerPtr( new SphericalHWNCGSCBeamformer( sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, ratio, nm ) );
+    SphericalHWNCGSCBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, float ratio=1.0, const String& nm = "SphericalHWNCGSCBeamformer" ){
+      return new SphericalHWNCGSCBeamformerPtr( new SphericalHWNCGSCBeamformer( samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, ratio, nm ) );
     }
     SphericalHWNCGSCBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -1010,7 +1010,7 @@ public:
 %ignore DualSphericalGSCBeamformer;
 class DualSphericalGSCBeamformer : public SphericalGSCBeamformer {
 public:
-  DualSphericalGSCBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalGSCBeamformer");
+  DualSphericalGSCBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalGSCBeamformer");
   ~DualSphericalGSCBeamformer();
 
   virtual SnapShotArrayPtr snapshot_array() const;
@@ -1024,8 +1024,8 @@ class DualSphericalGSCBeamformerPtr : public SphericalGSCBeamformerPtr {
   %feature("kwargs") DualSphericalGSCBeamformerPtr;
 public:
   %extend {
-    DualSphericalGSCBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalGSCBeamformer"){
-      return new DualSphericalGSCBeamformerPtr( new DualSphericalGSCBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder,  normalizeWeight, nm ) );
+    DualSphericalGSCBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "DualSphericalGSCBeamformer"){
+      return new DualSphericalGSCBeamformerPtr( new DualSphericalGSCBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder,  normalizeWeight, nm ) );
     }
     DualSphericalGSCBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -1051,7 +1051,7 @@ class SphericalMOENBeamformer : public SphericalDSBeamformer {
   %feature("kwargs") getBeamPattern;
 #endif
 public:
-  SphericalMOENBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalMOENBeamformer");
+  SphericalMOENBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalMOENBeamformer");
   ~SphericalMOENBeamformer();
 
   const gsl_vector_complex* next(int frame_no = -5);
@@ -1077,8 +1077,8 @@ class SphericalMOENBeamformerPtr : public SphericalDSBeamformerPtr {
   %feature("kwargs") SphericalMOENBeamformerPtr;
 public:
   %extend {
-    SphericalMOENBeamformerPtr( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalMOENBeamformer" ){
-      return new SphericalMOENBeamformerPtr( new SphericalMOENBeamformer( sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, nm ) );
+    SphericalMOENBeamformerPtr( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=4, bool normalizeWeight=false, const String& nm = "SphericalMOENBeamformer" ){
+      return new SphericalMOENBeamformerPtr( new SphericalMOENBeamformer( samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, nm ) );
     }
     SphericalMOENBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -1150,7 +1150,7 @@ class ModalDecomposition {
   %feature("kwargs") modalCoefficient;
 #endif
  public:
-  ModalDecomposition(unsigned orderN, unsigned subbandsN, double a, double sampleRate, unsigned useSubbandsN = 0);
+  ModalDecomposition(unsigned orderN, unsigned subbandsN, double a, double samplerate, unsigned useSubbandsN = 0);
   ~ModalDecomposition();
 
   gsl_complex harmonic(int order, int degree, double theta, double phi);
@@ -1172,8 +1172,8 @@ class ModalDecompositionPtr {
   %feature("kwargs") ModalDecompositionPtr;
 public:
   %extend {
-    ModalDecompositionPtr(unsigned orderN, unsigned subbandsN, double a, double sampleRate, unsigned useSubbandsN = 0) {
-      return new ModalDecompositionPtr(new ModalDecomposition(orderN, subbandsN, a, sampleRate, useSubbandsN));
+    ModalDecompositionPtr(unsigned orderN, unsigned subbandsN, double a, double samplerate, unsigned useSubbandsN = 0) {
+      return new ModalDecompositionPtr(new ModalDecomposition(orderN, subbandsN, a, samplerate, useSubbandsN));
     }
   }
 };
@@ -1196,7 +1196,7 @@ class SpatialDecomposition {
   %feature("kwargs") modalCoefficient;
 #endif
  public:
-  SpatialDecomposition(unsigned orderN, unsigned subbandsN, double a, double sampleRate, unsigned useSubbandsN = 0);
+  SpatialDecomposition(unsigned orderN, unsigned subbandsN, double a, double samplerate, unsigned useSubbandsN = 0);
   ~SpatialDecomposition();
 
   gsl_complex harmonic(int order, int degree, double theta, double phi);
@@ -1218,8 +1218,8 @@ class SpatialDecompositionPtr {
   %feature("kwargs") SpatialDecompositionPtr;
 public:
   %extend {
-    SpatialDecompositionPtr(unsigned orderN, unsigned subbandsN, double a, double sampleRate, unsigned useSubbandsN = 0) {
-      return new SpatialDecompositionPtr(new SpatialDecomposition(orderN, subbandsN, a, sampleRate, useSubbandsN));
+    SpatialDecompositionPtr(unsigned orderN, unsigned subbandsN, double a, double samplerate, unsigned useSubbandsN = 0) {
+      return new SpatialDecompositionPtr(new SpatialDecomposition(orderN, subbandsN, a, samplerate, useSubbandsN));
     }
   }
 };
@@ -1383,7 +1383,7 @@ class SphericalSpatialDSBeamformer : public SphericalDSBeamformer {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  SphericalSpatialDSBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalSpatialDSBeamformer");
+  SphericalSpatialDSBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, const String& nm = "SphericalSpatialDSBeamformer");
   ~SphericalSpatialDSBeamformer();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -1394,14 +1394,14 @@ class SphericalSpatialDSBeamformerPtr : public SphericalDSBeamformerPtr {
   %feature("kwargs") SphericalSpatialDSBeamformerPtr;
 public:
   %extend {
-    SphericalSpatialDSBeamformerPtr( unsigned sampleRate,
-                                     unsigned fftLen = 512,
-                                     bool halfBandShift = false,
+    SphericalSpatialDSBeamformerPtr( unsigned samplerate,
+                                     unsigned fftlen,
+                                     bool half_band_shift = false,
                                      unsigned NC=1,
                                      unsigned maxOrder=3,
                                      bool normalizeWeight=false,
                                      const String& nm = "SphericalSpatialDSBeamformer"){
-      return new SphericalSpatialDSBeamformerPtr( new SphericalSpatialDSBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder,  normalizeWeight, nm ) );
+      return new SphericalSpatialDSBeamformerPtr( new SphericalSpatialDSBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder,  normalizeWeight, nm ) );
     }
     SphericalSpatialDSBeamformerPtr __iter__() {
       (*self)->reset();  return *self;
@@ -1419,7 +1419,7 @@ class SphericalSpatialHWNCBeamformer : public SphericalHWNCBeamformer {
   %feature("kwargs") next;
   %feature("kwargs") reset;
 public:
-  SphericalSpatialHWNCBeamformer( unsigned sampleRate, unsigned fftLen = 512, bool halfBandShift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalSpatialHWNCBeamformer");
+  SphericalSpatialHWNCBeamformer( unsigned samplerate, unsigned fftlen, bool half_band_shift = false, unsigned NC=1, unsigned maxOrder=3, bool normalizeWeight=false, float ratio=0.1, const String& nm = "SphericalSpatialHWNCBeamformer");
   ~SphericalSpatialHWNCBeamformer();
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
@@ -1430,15 +1430,15 @@ class SphericalSpatialHWNCBeamformerPtr : public SphericalHWNCBeamformerPtr {
   %feature("kwargs") SphericalSpatialHWNCBeamformerPtr;
 public:
   %extend {
-    SphericalSpatialHWNCBeamformerPtr( unsigned sampleRate,
-                                       unsigned fftLen = 512,
-                                       bool halfBandShift = false,
+    SphericalSpatialHWNCBeamformerPtr( unsigned samplerate,
+                                       unsigned fftlen,
+                                       bool half_band_shift = false,
                                        unsigned NC=1,
                                        unsigned maxOrder=3,
                                        bool normalizeWeight=false,
                                        float ratio=0.1,
                                        const String& nm = "SphericalSpatialHWNCBeamformer"){
-      return new SphericalSpatialHWNCBeamformerPtr( new SphericalSpatialHWNCBeamformer(sampleRate, fftLen, halfBandShift, NC, maxOrder, normalizeWeight, ratio, nm ) );
+      return new SphericalSpatialHWNCBeamformerPtr( new SphericalSpatialHWNCBeamformer(samplerate, fftlen, half_band_shift, NC, maxOrder, normalizeWeight, ratio, nm ) );
     }
     SphericalSpatialHWNCBeamformerPtr __iter__() {
       (*self)->reset();  return *self;

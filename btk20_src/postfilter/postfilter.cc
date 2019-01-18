@@ -578,17 +578,17 @@ bool McCowanPostFilter::set_diffuse_noise_model( const gsl_matrix* micPositions,
   {// calculate the distance matrix.
      for(unsigned m=0;m<chanN;m++){
        for(unsigned n=0;n<m;n++){ //for(unsigned n=0;n<chanN;n++){
-	 double Xm = gsl_matrix_get( micPositions, m, 0 );
-	 double Xn = gsl_matrix_get( micPositions, n, 0 );
-	 double Ym = gsl_matrix_get( micPositions, m, 1 );
-	 double Yn = gsl_matrix_get( micPositions, n, 1 );
-	 double Zm = gsl_matrix_get( micPositions, m, 2 );
-	 double Zn = gsl_matrix_get( micPositions, n, 2 );
+         double Xm = gsl_matrix_get( micPositions, m, 0 );
+         double Xn = gsl_matrix_get( micPositions, n, 0 );
+         double Ym = gsl_matrix_get( micPositions, m, 1 );
+         double Yn = gsl_matrix_get( micPositions, n, 1 );
+         double Zm = gsl_matrix_get( micPositions, m, 2 );
+         double Zn = gsl_matrix_get( micPositions, n, 2 );
 
-	 double dx = Xm - Xn;
-	 double dy = Ym - Yn;
-	 double dz = Zm - Zn;
-	 gsl_matrix_set( dm, m, n, sqrt( dx * dx + dy * dy + dz * dz ) );
+         double dx = Xm - Xn;
+         double dy = Ym - Yn;
+         double dz = Zm - Zn;
+         gsl_matrix_set( dm, m, n, sqrt( dx * dx + dy * dy + dz * dz ) );
        }
      }
      //for(unsigned m=0;m<chanN;m++){ gsl_matrix_set( dm, m, m, 0.0 );}
@@ -600,19 +600,19 @@ bool McCowanPostFilter::set_diffuse_noise_model( const gsl_matrix* micPositions,
       double omega_d_c = 2.0 * sampleRate * fbinX / ( fftLen_ * sspeed );
 
       for(unsigned m=0;m<chanN;m++){
-	for(unsigned n=0;n<m;n++){
-	  double Gamma_mn = gsl_sf_sinc( omega_d_c * gsl_matrix_get( dm, m, n ) );
-	  gsl_matrix_complex_set( R_[fbinX], m, n, gsl_complex_rect( Gamma_mn, 0.0 ) );
-	}// for(unsigned n=0;n<chanN;n++){
+        for(unsigned n=0;n<m;n++){
+          double Gamma_mn = gsl_sf_sinc( omega_d_c * gsl_matrix_get( dm, m, n ) );
+          gsl_matrix_complex_set( R_[fbinX], m, n, gsl_complex_rect( Gamma_mn, 0.0 ) );
+        }// for(unsigned n=0;n<chanN;n++){
       }// for(unsigned m=0;m<chanN;m++){
       for(unsigned m=0;m<chanN;m++){
-	 gsl_matrix_complex_set( R_[fbinX], m, m, gsl_complex_rect( 1.0, 0.0 ) );
+        gsl_matrix_complex_set( R_[fbinX], m, m, gsl_complex_rect( 1.0, 0.0 ) );
       }
       for(unsigned m=0;m<chanN;m++){
-	for(unsigned n=m+1;n<chanN;n++){
-	  gsl_complex val = gsl_matrix_complex_get( R_[fbinX], n, m );
-	  gsl_matrix_complex_set( R_[fbinX], m, n, val );
-	}
+        for(unsigned n=m+1;n<chanN;n++){
+          gsl_complex val = gsl_matrix_complex_get( R_[fbinX], n, m );
+          gsl_matrix_complex_set( R_[fbinX], m, n, val );
+        }
       }
     }// for(unsigned fbinX=0;fbinX<=fftLen_/2;fbinX++){
   }
@@ -952,7 +952,7 @@ LefkimmiatisPostFilter::LefkimmiatisPostFilter( VectorComplexFeatureStreamPtr &o
 LefkimmiatisPostFilter::~LefkimmiatisPostFilter()
 {
   unsigned fftLen2 = fftLen_ / 2;
-  
+ 
   for( unsigned fbinX=0;fbinX<=fftLen2;fbinX++){
     if( NULL!=invR_[fbinX] )
       gsl_matrix_complex_free( invR_[fbinX] );

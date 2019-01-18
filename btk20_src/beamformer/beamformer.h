@@ -30,9 +30,9 @@ public:
   BeamformerWeights( unsigned fftLen, unsigned chanN, bool halfBandShift, unsigned NC = 1 );
   ~BeamformerWeights();
 
-  void calcMainlobe(  float sampleRate, const gsl_vector* delays,  bool isGSC );
-  void calcMainlobe2( float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ, bool isGSC );
-  void calcMainlobeN( float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC, bool isGSC );
+  void calcMainlobe(  float samplerate, const gsl_vector* delays,  bool isGSC );
+  void calcMainlobe2( float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ, bool isGSC );
+  void calcMainlobeN( float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC, bool isGSC );
   void calcSidelobeCancellerP_f( unsigned fbinX, const gsl_vector* packedWeight );
   void calcSidelobeCancellerU_f( unsigned fbinX, const gsl_vector_complex* wa );
   void calcBlockingMatrix( unsigned fbinX );
@@ -138,9 +138,9 @@ class SubbandDS : public SubbandBeamformer {
   virtual const gsl_vector_complex *get_weights(unsigned fbinX) const { return bfweight_vec_[0]->wq_f(fbinX); }
   virtual BeamformerWeights* beamformer_weight_object(unsigned srcX=0) const { return bfweight_vec_[srcX]; }
 
-  virtual void calc_array_manifold_vectors(float sampleRate, const gsl_vector* delays);
-  virtual void calc_array_manifold_vectors_2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
-  virtual void calc_array_manifold_vectors_n(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
+  virtual void calc_array_manifold_vectors(float samplerate, const gsl_vector* delays);
+  virtual void calc_array_manifold_vectors_2(float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
+  virtual void calc_array_manifold_vectors_n(float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
 
 #ifdef ENABLE_LEGACY_BTK_API
   virtual void clearChannel(){ clear_channel(); }
@@ -178,9 +178,9 @@ public:
   void set_quiescent_weights_f(unsigned fbinX, const gsl_vector_complex* srcWq);
   void set_active_weights_f(unsigned fbinX, const gsl_vector* packedWeight);
   void zero_active_weights();
-  void calc_gsc_weights(float sampleRate, const gsl_vector* delaysT);
-  void calc_gsc_weights_2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
-  void calc_gsc_weights_n(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
+  void calc_gsc_weights(float samplerate, const gsl_vector* delaysT);
+  void calc_gsc_weights_2(float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ);
+  void calc_gsc_weights_n(float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC=2);
 
   bool write_fir_coeff(const String& fn, unsigned winType=1);
   gsl_matrix_complex* blocking_matrix(unsigned srcX, unsigned fbinX){
@@ -284,8 +284,8 @@ public:
   virtual const gsl_vector_complex* next(int frame_no = -5);
 
   void use_binary_mask(float avgFactor=-1.0, unsigned fwidth=1, unsigned type=0);
-  void calc_weights(  float sampleRate, const gsl_matrix* delays);
-  void calc_weights_n( float sampleRate, const gsl_matrix* delays, unsigned NC=2);
+  void calc_weights(  float samplerate, const gsl_matrix* delays);
+  void calc_weights_n( float samplerate, const gsl_matrix* delays, unsigned NC=2);
   void set_hi_active_weights_f(unsigned fbinX, const gsl_vector* pkdWa, const gsl_vector* pkdwb, int option=0);
   void set_active_weights_f(unsigned fbinX, const gsl_matrix* packedWeights, int option=0);
 
@@ -342,12 +342,12 @@ class SubbandMVDR : public SubbandDS {
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void clear_channel();
-  bool calc_mvdr_weights(float sampleRate, float dThreshold = 1.0E-8, bool calcInverseMatrix = true);
+  bool calc_mvdr_weights(float samplerate, float dThreshold = 1.0E-8, bool calcInverseMatrix = true);
   const gsl_vector_complex* mvdir_weights(unsigned fbinX) const { return wmvdr_[fbinX]; }
 
   const gsl_matrix_complex *noise_spatial_spectral_matrix(unsigned fbinX) const { return R_[fbinX]; }
   bool set_noise_spatial_spectral_matrix(unsigned fbinX, gsl_matrix_complex* Rnn);
-  bool set_diffuse_noise_model(const gsl_matrix* micPositions, float sampleRate, float sspeed = 343740.0); /* micPositions[][x,y,z] */
+  bool set_diffuse_noise_model(const gsl_matrix* micPositions, float samplerate, float sspeed = 343740.0); /* micPositions[][x,y,z] */
   void set_all_diagonal_loading(float diagonalWeight);
   void set_diagonal_looading(unsigned fbinX, float diagonalWeight);
   /**
@@ -410,7 +410,7 @@ class SubbandMVDRGSC : public SubbandMVDR {
 
   void set_active_weights_f(unsigned fbinX, const gsl_vector* packedWeight);
   void zero_active_weights();
-  bool calc_blocking_matrix1(float sampleRate, const gsl_vector* delaysT);
+  bool calc_blocking_matrix1(float samplerate, const gsl_vector* delaysT);
   bool calc_blocking_matrix2();
   void upgrade_blocking_matrix();
   const gsl_vector_complex* blocking_matrix_output(int outChanX=0);
@@ -542,7 +542,7 @@ protected:
 class DOAEstimatorSRPDSBLA :
   public DOAEstimatorSRPBase, public SubbandDS {
 public:
-  DOAEstimatorSRPDSBLA( unsigned nBest, unsigned sampleRate, unsigned fftLen, const String& nm="DOAEstimatorSRPDSBLA" );
+  DOAEstimatorSRPDSBLA( unsigned nBest, unsigned samplerate, unsigned fftLen, const String& nm="DOAEstimatorSRPDSBLA" );
   ~DOAEstimatorSRPDSBLA();
 
   const gsl_vector_complex* next(int frame_no = -5);

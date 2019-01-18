@@ -495,11 +495,11 @@ BeamformerWeights::~BeamformerWeights()
 
 /**
    @brief calculate array manifold vectors for the delay & sum beamformer.
-   @param double sampleRate[in]
+   @param double samplerate[in]
    @param const gsl_vector* delays[in] a vector whose element indicates time delay. delaysT[chanN]
    @param bool isGSC[in] if it's 'true', blocking matrices will be calculated.
  */
-void BeamformerWeights::calcMainlobe( float sampleRate, const gsl_vector* delays, bool isGSC )
+void BeamformerWeights::calcMainlobe( float samplerate, const gsl_vector* delays, bool isGSC )
 {
   if (delays->size != chanN_ )
     throw jdimension_error("Number of delays does not match number of channels (%d vs. %d).\n",
@@ -519,7 +519,7 @@ void BeamformerWeights::calcMainlobe( float sampleRate, const gsl_vector* delays
       gsl_vector_complex* vec     = wq_[fbinX];
       gsl_vector_complex* vecConj = wq_[fftLen_ - 1 - fbinX];
       for (unsigned chanX = 0; chanX < chanN_; chanX++) {
-	double val = -2.0 * M_PI * (fshift+fbinX) * sampleRate * gsl_vector_get(delays, chanX) / fftLen_;
+	double val = -2.0 * M_PI * (fshift+fbinX) * samplerate * gsl_vector_get(delays, chanX) / fftLen_;
 	gsl_vector_complex_set(vec,     chanX, gsl_complex_div_real( gsl_complex_polar(1.0,  val), chanN_ ) );
 	gsl_vector_complex_set(vecConj, chanX, gsl_complex_div_real( gsl_complex_polar(1.0, -val), chanN_ ) );
       }
@@ -538,7 +538,7 @@ void BeamformerWeights::calcMainlobe( float sampleRate, const gsl_vector* delays
       vec     = wq_[fbinX];
       vecConj = wq_[fftLen_ - fbinX];
       for (unsigned chanX = 0; chanX < chanN_; chanX++) {
-	double val = -2.0 * M_PI * fbinX * gsl_vector_get(delays, chanX) * sampleRate / fftLen_;
+	double val = -2.0 * M_PI * fbinX * gsl_vector_get(delays, chanX) * samplerate / fftLen_;
 	gsl_vector_complex_set(vec,     chanX, gsl_complex_div_real( gsl_complex_polar(1.0,  val), chanN_ ) );
 	gsl_vector_complex_set(vecConj, chanX, gsl_complex_div_real( gsl_complex_polar(1.0, -val), chanN_ ) );
       }
@@ -546,7 +546,7 @@ void BeamformerWeights::calcMainlobe( float sampleRate, const gsl_vector* delays
     // for exp(-j*pi)
     vec     = wq_[fftLen2];
     for (unsigned chanX = 0; chanX < chanN_; chanX++) {
-      double val = -M_PI * sampleRate * gsl_vector_get(delays, chanX);
+      double val = -M_PI * samplerate * gsl_vector_get(delays, chanX);
       gsl_vector_complex_set(vec, chanX, gsl_complex_div_real( gsl_complex_polar(1.0,  val), chanN_ ) );
     }
   }
@@ -566,11 +566,11 @@ void BeamformerWeights::calcMainlobe( float sampleRate, const gsl_vector* delays
 
 /**
    @brief you can constrain a beamformer to preserve a target signal and, at the same time, to suppress an interference signal.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector*  delaysT[in] a time delay vector for a target signal. delaysT[chanN]
    @param const gsl_vector** delaysJ[in] a time delay vector for an interference. delaysI[chanN]
  */
-void BeamformerWeights::calcMainlobe2( float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysI, bool isGSC  )
+void BeamformerWeights::calcMainlobe2( float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysI, bool isGSC  )
 {
   if( delaysI->size != chanN_ )
     throw jdimension_error("The number of delays for an interference signal does not match number of channels (%d vs. %d).\n",
@@ -585,19 +585,19 @@ void BeamformerWeights::calcMainlobe2( float sampleRate, const gsl_vector* delay
   if( NULL == delaysIs )
     throw jallocation_error("gsl_matrix_complex_alloc failed\n");
   gsl_matrix_set_row( delaysIs, 0, delaysI );
-  this->calcMainlobeN( sampleRate, delaysT, delaysIs, 2, isGSC );
+  this->calcMainlobeN( samplerate, delaysT, delaysIs, 2, isGSC );
 
   gsl_matrix_free( delaysIs );
 }
 
 /**
    @brief put multiple constraints to preserve a target signal and, at the same time, to suppress interference signals.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector*  delaysT[in] delaysT[chanN]
    @param const gsl_vector** delaysJ[in] delaysJ[NC-1][chanN]
    @param int NC[in] the number of constraints (= the number of target and interference signals )
  */
-void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC, bool isGSC  )
+void BeamformerWeights::calcMainlobeN( float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC, bool isGSC  )
 {
   if( NC < 2  || NC > chanN_ )
     throw jdimension_error("1 < the number of constraints %d <= the number of sensors %d.\n",
@@ -628,7 +628,7 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
 #endif
 
   // set values to wq_[].
-  this->calcMainlobe( sampleRate, delaysT, false );
+  this->calcMainlobe( samplerate, delaysT, false );
 
   if ( halfBandShift_==true ) {
     float fshift = 0.5;
@@ -642,7 +642,7 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
 	gsl_vector_complex_set( vec,     chanX, gsl_complex_mul_real( wq_f,  chanN_ ) );
 	gsl_vector_complex_set( vecConj, chanX, gsl_complex_mul_real( wqc_f, chanN_ ) );
 	for(int n=0;n<NC-1;n++){
-	  double valJ = -2.0 * M_PI * (fshift+fbinX) * sampleRate * gsl_matrix_get(delaysIs, n, chanX) / fftLen_;
+	  double valJ = -2.0 * M_PI * (fshift+fbinX) * samplerate * gsl_matrix_get(delaysIs, n, chanX) / fftLen_;
 	  gsl_vector_complex_set(pWj[n],     chanX, gsl_complex_polar(1.0,  valJ) );
 	  gsl_vector_complex_set(pWjConj[n], chanX, gsl_complex_polar(1.0, -valJ) );
 	}
@@ -654,7 +654,6 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
 	throw j_error("calc_null_beamformer_() failed\n");
       }
     }
-    
   } else {
     gsl_vector_complex* vec;
     gsl_vector_complex* vecConj;
@@ -663,9 +662,9 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
     vec = wq_[0];
     for (unsigned chanX = 0; chanX < chanN_; chanX++)
       gsl_vector_complex_set( vec, chanX, gsl_complex_rect( 1.0/chanN_, 0.0 ) );
-    
+
     // use the property of the symmetry : wq[1] = wq[fftLen-1]*, wq[2] = wq[fftLen-2]*,...
-    for (unsigned fbinX = 1; fbinX < fftLen2; fbinX++) { 
+    for (unsigned fbinX = 1; fbinX < fftLen2; fbinX++) {
       vec     = wq_[fbinX];
       vecConj = wq_[fftLen_ - fbinX];
       for (unsigned chanX = 0; chanX < chanN_; chanX++) {
@@ -674,7 +673,7 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
 	gsl_vector_complex_set( vec,     chanX, gsl_complex_mul_real( wq_f,  chanN_ ) );
 	//gsl_vector_complex_set( vecConj, chanX, gsl_complex_mul_real( wqc_f, chanN_ ) );
  	for(int n=0;n<NC-1;n++){
-	  double valJ = -2.0 * M_PI * fbinX * sampleRate * gsl_matrix_get(delaysIs, n, chanX) / fftLen_;
+	  double valJ = -2.0 * M_PI * fbinX * samplerate * gsl_matrix_get(delaysIs, n, chanX) / fftLen_;
 	  gsl_vector_complex_set(pWj[n],     chanX, gsl_complex_polar(1.0,  valJ) );
 	  //gsl_vector_complex_set(pWjConj[n], chanX, gsl_complex_polar(1.0, -valJ) );
 	}
@@ -693,7 +692,7 @@ void BeamformerWeights::calcMainlobeN( float sampleRate, const gsl_vector* delay
       gsl_complex wq_f  = gsl_vector_complex_get( vec, chanX );
       gsl_vector_complex_set( vec, chanX, gsl_complex_mul_real( wq_f, chanN_ ) );
       for(int n=0;n<NC-1;n++){
-	double val = -M_PI * sampleRate *  gsl_matrix_get(delaysIs, n, chanX);
+	double val = -M_PI * samplerate *  gsl_matrix_get(delaysIs, n, chanX);
 	gsl_vector_complex_set(vec, chanX, gsl_complex_div_real( gsl_complex_polar(1.0,  val), chanN_ ) );
       }
       if( false==calc_null_beamformer_( vec, pWj, chanN_, NC ) ){
@@ -1040,38 +1039,38 @@ void SubbandDS::clear_channel()
 
 /**
    @brief calculate an array manifold vectors for the delay & sum beamformer.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector* delays[in] delaysT[chanN]
  */
-void SubbandDS::calc_array_manifold_vectors(float sampleRate, const gsl_vector* delays)
+void SubbandDS::calc_array_manifold_vectors(float samplerate, const gsl_vector* delays)
 {
   this->alloc_bfweight_( 1, 1 );
-  bfweight_vec_[0]->calcMainlobe( sampleRate, delays, false );
+  bfweight_vec_[0]->calcMainlobe( samplerate, delays, false );
 }
 
 /**
    @brief you can put 2 constraints. You can constrain a beamformer to preserve a target signal and, at the same time, to suppress an interference signal.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector*  delaysT[in] delaysT[chanN]
    @param const gsl_vector** delaysJ[in] delaysJ[chanN]
  */
-void SubbandDS::calc_array_manifold_vectors_2(float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysJ )
+void SubbandDS::calc_array_manifold_vectors_2(float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysJ )
 {
   this->alloc_bfweight_( 1, 2 );
-  bfweight_vec_[0]->calcMainlobe2( sampleRate, delaysT, delaysJ, false );
+  bfweight_vec_[0]->calcMainlobe2( samplerate, delaysT, delaysJ, false );
 }
 
 /**
    @brief you can put multiple constraints. For example, you can constrain a beamformer to preserve a target signal and, at the same time, to suppress interference signals.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector* delaysT[in] delaysT[chanN]
    @param const gsl_matrix* delaysJ[in] delaysJ[NC-1][chanN]
    @param int NC[in] the number of constraints (= the number of target and interference signals )
  */
-void SubbandDS::calc_array_manifold_vectors_n(float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC )
+void SubbandDS::calc_array_manifold_vectors_n(float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysJ, unsigned NC )
 {
   this->alloc_bfweight_( 1, NC );
-  bfweight_vec_[0]->calcMainlobeN( sampleRate, delaysT, delaysJ, NC, false );
+  bfweight_vec_[0]->calcMainlobeN( samplerate, delaysT, delaysJ, NC, false );
 }
 
 void SubbandDS::alloc_image_()
@@ -1324,27 +1323,27 @@ void SubbandGSC::set_quiescent_weights_f(unsigned fbinX, const gsl_vector_comple
   bfweight_vec_[0]->calcBlockingMatrix( fbinX );
 }
 
-void SubbandGSC::calc_gsc_weights(float sampleRate, const gsl_vector* delaysT)
+void SubbandGSC::calc_gsc_weights(float samplerate, const gsl_vector* delaysT)
 {
   this->alloc_bfweight_( 1, 1 );
-  bfweight_vec_[0]->calcMainlobe( sampleRate, delaysT, true );
+  bfweight_vec_[0]->calcMainlobe( samplerate, delaysT, true );
 }
 
-void SubbandGSC::calc_gsc_weights_2( float sampleRate, const gsl_vector* delaysT, const gsl_vector* delaysI )
+void SubbandGSC::calc_gsc_weights_2( float samplerate, const gsl_vector* delaysT, const gsl_vector* delaysI )
 {
   this->alloc_bfweight_( 1, 2 );
-  bfweight_vec_[0]->calcMainlobe2( sampleRate, delaysT, delaysI, true );
+  bfweight_vec_[0]->calcMainlobe2( samplerate, delaysT, delaysI, true );
 }
 
 /**
    @brief calculate the quescent vectors with N linear constraints
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_vector* delaysT[in] delaysT[chanN]
    @param const gsl_matrix* delaysJ[in] delaysJ[NC-1][chanN]
    @param int NC[in] the number of constraints (= the number of target and interference signals )
    @note you can put multiple constraints. For example, you can constrain a beamformer to preserve a target signal and, at the same time, to suppress interference signals.
  */
-void SubbandGSC::calc_gsc_weights_n( float sampleRate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC )
+void SubbandGSC::calc_gsc_weights_n( float samplerate, const gsl_vector* delaysT, const gsl_matrix* delaysIs, unsigned NC )
 {
   if( NC == 2 ){
     gsl_vector* delaysI = gsl_vector_alloc( chanN() );
@@ -1352,13 +1351,13 @@ void SubbandGSC::calc_gsc_weights_n( float sampleRate, const gsl_vector* delaysT
     for( unsigned i=0;i<chanN();i++)
       gsl_vector_set( delaysI, i, gsl_matrix_get( delaysIs, 0, i ) );
     this->alloc_bfweight_( 1, 2 );
-    bfweight_vec_[0]->calcMainlobe2( sampleRate, delaysT, delaysI, true );
+    bfweight_vec_[0]->calcMainlobe2( samplerate, delaysT, delaysI, true );
 
     gsl_vector_free(delaysI);
   }
   else{
     this->alloc_bfweight_( 1, NC );
-    bfweight_vec_[0]->calcMainlobeN( sampleRate, delaysT, delaysIs, NC, true );
+    bfweight_vec_[0]->calcMainlobeN( samplerate, delaysT, delaysIs, NC, true );
   }
 }
 
@@ -1730,17 +1729,17 @@ void SubbandMMI::use_binary_mask(float avgFactor, unsigned fwidth, unsigned type
 
 /**
    @brief calculate a quiescent weight vector and blocking matrix for each frequency bin.
-   @param double sampleRate[in]
+   @param double samplerate[in]
    @param const gsl_matrix* delayMat[in] delayMat[nSource][nChan]
  */
-void SubbandMMI::calc_weights(float sampleRate, const gsl_matrix* delayMat)
+void SubbandMMI::calc_weights(float samplerate, const gsl_matrix* delayMat)
 {
   this->alloc_bfweight_(nSource_, 1);
   gsl_vector *delaysT = gsl_vector_alloc(chanN());
 
   for( unsigned srcX=0;srcX<nSource_;srcX++){
     gsl_matrix_get_row(delaysT, delayMat, srcX);
-    bfweight_vec_[srcX]->calcMainlobe(sampleRate, delaysT, true);
+    bfweight_vec_[srcX]->calcMainlobe(samplerate, delaysT, true);
   }
 
   gsl_vector_free(delaysT);
@@ -1748,11 +1747,11 @@ void SubbandMMI::calc_weights(float sampleRate, const gsl_matrix* delayMat)
 
 /**
    @brief calculate a quiescent weight vector with N constraints and blocking matrix for each frequency bin.
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param const gsl_matrix* delayMat[in] delayMat[nSource][nChan]
    @param unsigned NC[in] the number of linear constraints
  */
-void SubbandMMI::calc_weights_n( float sampleRate, const gsl_matrix* delayMat, unsigned NC )
+void SubbandMMI::calc_weights_n( float samplerate, const gsl_matrix* delayMat, unsigned NC )
 {
   if( 0 == bfweight_vec_.size() )
     this->alloc_bfweight_( nSource_, NC );
@@ -1769,7 +1768,7 @@ void SubbandMMI::calc_weights_n( float sampleRate, const gsl_matrix* delayMat, u
       gsl_matrix_set_row( delaysIs, i, tmpV );
       i++;
     }
-    bfweight_vec_[srcX]->calcMainlobeN( sampleRate, delaysT, delaysIs, NC, true );
+    bfweight_vec_[srcX]->calcMainlobeN( samplerate, delaysT, delaysIs, NC, true );
   }
 
   gsl_vector_free( delaysT );
@@ -2348,7 +2347,7 @@ void SubbandMVDR::clear_channel()
   }
 }
 
-bool SubbandMVDR::calc_mvdr_weights( float sampleRate, float dThreshold, bool calcInverseMatrix )
+bool SubbandMVDR::calc_mvdr_weights( float samplerate, float dThreshold, bool calcInverseMatrix )
 {
   if( NULL == R_[0] ){
     throw jallocation_error("Set a spatial spectral matrix before calling calc_mvdr_weights()\n");
@@ -2437,10 +2436,10 @@ bool SubbandMVDR::set_noise_spatial_spectral_matrix(unsigned fbinX, gsl_matrix_c
    @brief calculate the coherence matrix in the case of the diffuse noise field.
 
    @param const gsl_matrix* micPositions[in] geometry of the microphone array. micPositions[no. channels][x,y,z]
-   @param float sampleRate[in]
+   @param float samplerate[in]
    @param float sspeed[in]
  */
-bool SubbandMVDR::set_diffuse_noise_model( const gsl_matrix* micPositions, float sampleRate, float sspeed )
+bool SubbandMVDR::set_diffuse_noise_model( const gsl_matrix* micPositions, float samplerate, float sspeed )
 {
   size_t micN  = micPositions->size1;
 
@@ -2482,8 +2481,8 @@ bool SubbandMVDR::set_diffuse_noise_model( const gsl_matrix* micPositions, float
 
   {
     for(unsigned fbinX=0;fbinX<=fftLen_/2;fbinX++){
-      //double omega_d_c = 2.0 * M_PI * sampleRate * fbinX / ( fftLen_ * sspeed );
-      double omega_d_c = 2.0 * sampleRate * fbinX / ( fftLen_ * sspeed );
+      //double omega_d_c = 2.0 * M_PI * samplerate * fbinX / ( fftLen_ * sspeed );
+      double omega_d_c = 2.0 * samplerate * fbinX / ( fftLen_ * sspeed );
 
       for(unsigned m=0;m<micN;m++){
         for(unsigned n=0;n<m;n++){
@@ -2636,10 +2635,10 @@ void SubbandMVDRGSC::zero_active_weights()
    @brief compute the blocking matrix so as to satisfy the orthogonal condition 
           with the delay-and-sum beamformer's weight.
  */
-bool SubbandMVDRGSC::calc_blocking_matrix1( float sampleRate, const gsl_vector* delaysT )
+bool SubbandMVDRGSC::calc_blocking_matrix1( float samplerate, const gsl_vector* delaysT )
 {
   this->alloc_bfweight_( 1, 1 );
-  bfweight_vec_[0]->calcMainlobe( sampleRate, delaysT, true );
+  bfweight_vec_[0]->calcMainlobe( samplerate, delaysT, true );
   return true;
 }
 
@@ -3017,10 +3016,10 @@ void DOAEstimatorSRPBase::set_search_param(float minTheta, float maxTheta, float
 
 // ----- definition for class DOAEstimatorSRPDSBLA' -----
 //
-DOAEstimatorSRPDSBLA::DOAEstimatorSRPDSBLA( unsigned nBest, unsigned sampleRate, unsigned fftLen, const String& nm ):
+DOAEstimatorSRPDSBLA::DOAEstimatorSRPDSBLA( unsigned nBest, unsigned samplerate, unsigned fftLen, const String& nm ):
   DOAEstimatorSRPBase( nBest, fftLen/2 ),
   SubbandDS(fftLen, false, nm ),
-  samplerate_(sampleRate)
+  samplerate_(samplerate)
 {
   //fprintf(stderr,"DOAEstimatorSRPDSBLA\n");
   arraygeometry_ = NULL;
