@@ -23,7 +23,7 @@ def initBeamformer(spectralSources, dspath, inDataDir, vitPathDir, meanDir,
         gblBeamformer = HMMSubbandBeamformer(spectralSources, dspath,
                                              inDataDir, vitPathDir, meanDir,
                                              plotting, cepLen)
-        
+
 def setInterference(itfDir, itfName, dBItfLevel):
     global gblBeamformer
     gblBeamformer.setInterference(itfDir, itfName, dBItfLevel)

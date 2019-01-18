@@ -6,7 +6,7 @@
 #   Purpose: Cepstral feature extraction.
 #   Author:  Dominik Raub and Matthias Woelfel
 
-from Numeric import *
+from numpy import *
 from MLab import *
 from FFT import *
 from LinearAlgebra import *
@@ -239,9 +239,3 @@ class PowerFrontend(SpectralSource):
         """Set up to process the next utterance."""
         self.__soundSource = OffsetCorrectedFileSoundSource(filename, blkLen = self._windowLen, lastBlk = "unmodified")
         self.__powerFeatures.nextUtt(self.__soundSource)
-
-
-
-
-
-

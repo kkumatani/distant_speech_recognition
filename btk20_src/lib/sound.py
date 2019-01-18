@@ -15,7 +15,7 @@ Janus5 are supported.
 """
 
 from __future__ import generators
-import Numeric
+import numpy
 from btk import feature
 from MLab import *
 
@@ -31,7 +31,7 @@ def read(fname, headMode="auto", byteMode="auto",
     Read fname and save the ADC data to the NumPy array data
     """
     if fname[-4:] == ".shn":
-	byteMode = "shorten"
+        byteMode = "shorten"
     return _feature.read(fname, headMode, byteMode,
                             chX, chN, cfrom, cto, force)
 
@@ -85,7 +85,7 @@ class FileSoundSource(SoundSource):
             self._dataLen      = len(self._data)
 
         if delay > 0:
-            delayedData         = Numeric.zeros(delay + len(self._data))
+            delayedData         = numpy.zeros(delay + len(self._data))
             delayedData[delay:] = self._data[:]
             self._data          = delayedData
 
@@ -120,7 +120,7 @@ class FileSoundSource(SoundSource):
                 elif (self._lastBlk == "unmodified"):
                     final = self._data[self._cfrom:]
                 elif (self._lastBlk == "stuffed"):
-                    final = Numeric.zeros(self._blkLen, "s")
+                    final = numpy.zeros(self._blkLen, "s")
                     final[0:(self._dataLen-self._cfrom)] = self._data[self._cfrom:]
                 else:
                     raise ValueError, 'Argument lastBlk has unrecognized value'
@@ -198,7 +198,7 @@ class OffsetCorrectedFileSoundSource(FileSoundSource):
                 elif (self._lastBlk == "unmodified"):
                     block = self._data[self._cfrom:]
                 elif (self._lastBlk == "stuffed"):
-                    block = Numeric.zeros(self._blkLen)
+                    block = numpy.zeros(self._blkLen)
                     block[0:(self._dataLen-self._cfrom)] = self._data[self._cfrom:]
                 else:
                     raise ValueError, 'Argument lastBlk has unrecognized value'
@@ -248,8 +248,8 @@ class MCFileSoundSource:
                                          blkLen = self._blkLen))
         for j in self._chIt:
             self._chGen.append(iter(j))
-        
-        
+
+
     def chan(self, chN):
         """
         Iterates Generators for channel 0 to chN-1
@@ -259,7 +259,7 @@ class MCFileSoundSource:
             yield self._chGen[ch]
             ch = ch + 1
         raise StopIteration
-    
+
 
     def getData(self, chX, cfrom ):
         """
@@ -272,7 +272,7 @@ class MCFileSoundSource:
             return samples
         else:
             raise StopIteration
-        
+
 class MCIterator(SoundSource):
     """
     Iterates through samples of one channel in a multichannel file
@@ -283,12 +283,8 @@ class MCIterator(SoundSource):
         self._cfrom = cfrom
         self._blkLen = blkLen
         self._j = 0
-        
+
     def __iter__(self):
         while(1):
             yield self._mcfss.getData(self._chX, self._cfrom)
             self._cfrom += self._blkLen
- 
-
-# mute _featureADC.so
-#_feature.adc_verbosity(0)

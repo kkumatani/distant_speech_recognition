@@ -1,58 +1,58 @@
-# 
-#                        Beamforming Toolkit
-#                               (btk)
-# 
-#   Module:  btk.subbandBeamforming
-#   Purpose: Subband beamforming.
-#   Author:  John McDonough.
-# 
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or (at
-#  your option) any later version.
-#  
-#  This program is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-#  General Public License for more details.
-#  
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+"""
+Do not use this script.
 
-
+Every function will be moved into py_beamforming.py
+"""
 from __future__ import generators
 
 import copy
 import numpy
- 
 
-#from LinearAlgebra import *
-#from btk import sound
+
 from btk.portnoff import *
-#from btk.squareRoot import *
 from btk.beamformer import *
 import pickle
 
+SSPEED = 343740.0
 
 def calcPolarTimeDelays(arrgeom, azimuth, elevation):
      """Calculate the delays to focus the beam on (x,y,z) in the
      medium field."""
- 
-     sspeed = 343740.0
+
      chanN  = len(arrgeom)
-         
+
      delays = []
      c_x = - numpy.sin(elevation) * numpy.cos(azimuth)
      c_y = - numpy.sin(elevation) * numpy.sin(azimuth)
      c_z = - numpy.cos(elevation)
      for i in range(chanN):
-         t = (c_x * arrgeom[i,0] + c_y * arrgeom[i,1] + c_z * arrgeom[i,2]) /sspeed
+         t = (c_x * arrgeom[i,0] + c_y * arrgeom[i,1] + c_z * arrgeom[i,2]) /SSPEED
          delays.append( t )
- 
+
      delays = numpy.array(delays, numpy.float)
- 
+
      return delays
+
+
+def calcDelays(x, y, z, mpos):
+    """Calculate the delays to focus the beam on (x,y,z) in the
+    medium field."""
+
+    chanN  = len(mpos)
+
+    delays = []
+    for i in range(chanN):
+        t = numpy.sqrt((x-mpos[i,0])**2+(y-mpos[i,1])**2+(z-mpos[i,2])**2) / SSPEED
+        delays.append( t )
+
+    delays = numpy.array(delays, numpy.float)
+
+    # Normalize by delay of the middle element
+    mid = delays[chanN/2]
+    for i in range(len(mpos)):
+        delays[i] -= mid
+
+    return delays
 
 
 class SpectralSource:
@@ -187,16 +187,13 @@ class CepstralFB(SpectralSource):
         self.__soundSource = soundSource
         self.__shift       = soundSource._blkLen
 
-#class SynthesisFB(sound.SoundSource,SpectralSource):    
+
 class SynthesisFB(SpectralSource):
     """
     Class to resynthesize speech based on sub-band samples.
     """
     def __init__(self, spectralSource):
         """Initialize the synthesis filter bank."""
-#        sound.SoundSource.__init__(self,
-#                                   spectralSource._fftLen /
-#                                   spectralSource._subSampRate)
         SpectralSource.__init__(self,
                                 spectralSource._fftLen,
                                 spectralSource._nBlocks,
@@ -224,27 +221,6 @@ class SynthesisFB(SpectralSource):
 
             nextR += self._fftLen / self._subSampRate
 
-def calcDelays(x, y, z, mpos):
-    """Calculate the delays to focus the beam on (x,y,z) in the
-    medium field."""
-
-    sspeed = 343740.0
-    chanN  = len(mpos)
-	
-    delays = []
-    for i in range(chanN):
-        t = numpy.sqrt((x-mpos[i,0])**2+(y-mpos[i,1])**2+(z-mpos[i,2])**2) / sspeed
-        delays.append( t )
-
-    delays = numpy.array(delays, numpy.float)
-
-    # Normalize by delay of the middle element
-    mid = delays[chanN/2]
-    for i in range(len(mpos)):
-        delays[i] -= mid
-
-    return delays
-
 
 def calcBlockingMatrix(vs , NC = 1 ):
     """Calculate the blocking matrix for a distortionless beamformer,
@@ -255,8 +231,8 @@ def calcBlockingMatrix(vs , NC = 1 ):
 
     # Calculate the perpendicular projection operator 'PcPerp' for 'vs'.
     norm_vs  = numpy.inner( vs, numpy.conjugate(vs) )
-    
-    if norm_vs.real > 0.0:        
+
+    if norm_vs.real > 0.0:
         PcPerp   = numpy.eye(len(vs)) - numpy.outer( numpy.conjugate(vs), vs ) / norm_vs
 
         # Do Gram-Schmidt orthogonalization on the columns of 'PcPerp'.
@@ -275,7 +251,7 @@ def calcBlockingMatrix(vs , NC = 1 ):
 
     # return numpy.conjugate(numpy.transpose(blockMat))
     return blockMat
-   
+
 class SubbandBeamformer(SpectralSource):
     """
     Beamformer for processing spectral samples with fixed weights.
@@ -519,7 +495,7 @@ def calcNullBeamformer( w_t, w_j, NC ):
     """@param w_t[nChan] : a constraint for a target signal"""
     """@param w_j[nChan] : a constraint for a jammer signal"""
     """@param NC: the number of constraints (it must be 2)"""
-    
+
     # there are 2 linear constraints
     if NC!=2:
         print "The number of constraints must be 2:",NC
@@ -1196,7 +1172,7 @@ class SubbandBeamformerMPDR(SubbandBeamformerDS):
         for m in range(self._fftLen):
             self._SxK.append(numpy.zeros((self._nChan,self._nChan), numpy.complex))
             self._waK.append(numpy.zeros( self._nChan-1, numpy.complex))
-  
+
     def __iter__(self):
         """Return the next spectral sample."""
         analysisFBs = []
@@ -1210,7 +1186,7 @@ class SubbandBeamformerMPDR(SubbandBeamformerDS):
             for m in range(self._fftLen):
                 # Get next snapshot and form output of blocking matrix.
                 sample = copy.deepcopy( self.getSnapShot(m) )
-                
+
                 XHK = numpy.conjugate( sample )
                 ZHK = numpy.dot(XHK, self._blockingMatrix[m])
 
