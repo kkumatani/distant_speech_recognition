@@ -23,7 +23,8 @@ set(CMAKE_C_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS "-Wall -fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-add_definitions(-DDEBUG_MEMORY_MANAGER)
+# print verbose information for memory debugging
+# add_definitions(-DDEBUG_MEMORY_MANAGER)
 add_definitions(-DENABLE_LEGACY_BTK_API)
 
 # For swig

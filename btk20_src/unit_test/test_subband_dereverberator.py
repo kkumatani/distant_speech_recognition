@@ -159,7 +159,7 @@ def multi_channel_wpe(h_fb, g_fb, D, M, m, r, input_audio_paths, out_paths, wpe_
         # Open an output file pointer
         wavefile = wave.open(out_paths[c], 'w')
         wavefile.setnchannels(1)
-        wavefile.setsampwidth(2) #
+        wavefile.setsampwidth(2)
         wavefile.setframerate(int(samplerate))
         wavefiles.append(wavefile)
 
