@@ -524,10 +524,10 @@ class SubbandMVDRBeamformer(SubbandBeamformer):
 
 class SubbandGSCLMSBeamformer(SubbandBeamformer):
     """
-    Leaky version of the least mean square (LMS) beamformer implemented in
+    Leaky least mean square (LMS) beamformer implemented in
     generalized sidelobe canceller (GSC) configuration with
-    fixed diagonal loading. Also known as the leaky version of the Griffiths-Jim
-    beamformer.
+    power-normalized (PN) step size, which can be viewed as
+    the leaky version of the PNLMS beamformer.
 
     :note: pure python implementation
     """
@@ -535,14 +535,38 @@ class SubbandGSCLMSBeamformer(SubbandBeamformer):
                  beta = 0.97,
                  gamma = 0.01,
                  init_diagonal_load = 1.0E+6,
+                 regularization_param = 1.0E-4,
                  energy_floor = 90,
                  sil_thresh = 1.0E+8,
                  max_wa_l2norm = 100.0,
                  min_frames = 128,
-                 slowdown_after = 1024,
+                 slowdown_after = 4096,
                  Nc = 1):
         """
         Initialize the subband Griffiths-Jim beamformer.
+
+        :param spec_sources: Multiple specral sources
+        :type spec_sources: List of stream feature pointer object
+        :param beta: Forgetting factor for recursive signal power averaging
+        :type beta: float
+        :param gamma: Step size factor
+        :type gamma: float
+        :param init_diagonal_load: Initial power estimate
+        :type init_diagonal_load: float
+        :param regularization_param: Leak amount for the leaky LMS
+        :type regularization_param: float
+        :param energy_floor: Signal energy flooring value
+        :type energy_floor: float
+        :param sil_thresh: Silence power threshold
+        :type sil_thresh: float
+        :param max_wa_l2norm : Active weight vector norm threshold so |wa|^2 <= max_wa_l2nor
+        :type max_wa_l2norm : float
+        :param min_frames:
+        :type min_frames: int
+        :param slowdown_after:
+        :type slowdown_after: int
+        :param Nc: No. linear constraints
+        :type Nc: int
         """
         SubbandBeamformer.__init__(self, spec_sources)
         # obtain the multi-channel subband input to process
@@ -558,7 +582,8 @@ class SubbandGSCLMSBeamformer(SubbandBeamformer):
         # parameters for active weight estimation
         self._beta               = beta # forgetting factor for the signal power
         self._init_gamma         = gamma # step size factor
-        self._init_diagonal_load = init_diagonal_load # diagonal loading for active weight optimization
+        self._init_diagonal_load = init_diagonal_load # Initial power estimate for recursive power averagin
+        self._regularization_param = regularization_param # control the leak
         self._energy_floor       = energy_floor # the floor value for the energy
         self._sil_thresh         = sil_thresh
         self._max_wa_l2norm      = max_wa_l2norm # the upper boundary of the active weight vector norm |waK|
@@ -607,8 +632,11 @@ class SubbandGSCLMSBeamformer(SubbandBeamformer):
                     alphaK = self._gamma / subband_energy
                     # Update active weight vector.
                     watHK  = self._waH[m] + epa * numpy.conjugate(ZK) * alphaK
+                    # Apply the regularization term (leak)
+                    if self._regularization_param > 0:
+                        watHK = watHK - alphaK * self._regularization_param * self._waH[m]
                     norm_watK = abs(numpy.dot(watHK, numpy.conjugate(watHK)))
-                    if norm_watK > self._max_wa_l2norm:
+                    if norm_watK > self._max_wa_l2norm: # Apply the quadratic constraint
                         cK = numpy.sqrt(self._max_wa_l2norm / norm_watK)
                         waHK = cK * watHK
                     else:
@@ -677,22 +705,22 @@ class SubbandGSCRLSBeamformer(SubbandBeamformer):
     """
     Recursive least squares (RLS) beamformer implemented in
     generalized sidelobe canceller (GSC) configuration with
-    fixed diagonal loading.
+    a regularization term.
 
     :note: pure python implementation
     """
     def __init__(self, spec_sources,
                  beta = 0.97,
-                 gamma = 0.1,
+                 gamma = 0.04,
                  mu = 0.97,
                  init_diagonal_load = 1.0E+6,
-                 fixed_diagonal_load = 0.01,
+                 regularization_param = 1.0E-2,
                  sil_thresh = 1.0E+8,
                  constraint_option = 3,
                  alpha2 = 10.0,
                  max_wa_l2norm = 100.0,
                  min_frames = 128,
-                 slowdown_after = 1024,
+                 slowdown_after = 4096,
                  Nc = 1):
         """
         Initialize the subband Griffiths-Jim beamformer.
@@ -713,7 +741,7 @@ class SubbandGSCRLSBeamformer(SubbandBeamformer):
         self._gamma              = gamma # step size factor
         self._mu                 = mu # recursive weight for covariance matrix estimation
         self._init_diagonal_load = init_diagonal_load # initial divisor for Pz
-        self._fixed_diagonal_load = fixed_diagonal_load # ad-hoc diagonal loading for active weight vector update
+        self._regularization_param = regularization_param # ad-hoc diagonal loading for active weight vector update
         self._sil_thresh         = sil_thresh
         self._constraint_option  = constraint_option # 0:no constraint, 1: quadratic constraint, 2: norm normalization, 3: both
         self._alpha2             = alpha2         # threshold for the quadratic constraint
@@ -755,9 +783,9 @@ class SubbandGSCRLSBeamformer(SubbandBeamformer):
                     # Update active weight vector.
                     epK  = YcK - numpy.dot(self._waH[m], ZK)
                     waHK = self._waH[m] + self._gamma * numpy.conjugate(gzK) * epK
-                    # Apply fixed diagonal loading
-                    if self._fixed_diagonal_load > 0:
-                        waHK = waHK - self._fixed_diagonal_load * numpy.dot(numpy.conjugate(PzK), self._waH[m])
+                    # Apply the regularization term
+                    if self._regularization_param > 0:
+                        waHK = waHK - numpy.dot(numpy.conjugate(PzK), self._waH[m]) * self._regularization_param
                     waK = numpy.conjugate(waHK)
 
                     if self._constraint_option > 0:
