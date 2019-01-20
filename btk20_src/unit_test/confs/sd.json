@@ -4,5 +4,5 @@
                          [  76.0, 0.0, 2.0],
                          [ 113.0, 0.0, 2.0]],
  "target":{"positions":[[0.0, [-1.306379, null, null]]]},
- "beamformer":{"type":"super_directive"}
+ "beamformer":{"type":"super_directive", "diagonal_load":0.01}
 }

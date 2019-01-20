@@ -99,21 +99,27 @@ def online_beamforming(h_fb, g_fb, D, M, m, r, input_audio_paths, out_path, ap_c
         beamformer = SubbandGSCLMSBeamformer(afbs,
                                              beta  = bf_conf.get('beta', 0.97),  # forgetting factor for recursive signal power est.
                                              gamma = bf_conf.get('gamma', 0.01), # step size factor
-                                             init_diagonal_load  = bf_conf.get('init_diagonal_load', 1.0E+6), # represent each subband energy
-                                             energy_floor        = bf_conf.get('energy_floor', 90),     # flooring small energy
-                                             sil_thresh          = bf_conf.get('sil_thresh', 1.0E+8),   # silence threshold
-                                             max_wa_l2norm       = bf_conf.get('max_wa_l2norm', 100.0)) # Threshold so |wa|^2 <= max_wa_l2nor
+                                             init_diagonal_load   = bf_conf.get('init_diagonal_load', 1.0E+6), # represent each subband energy
+                                             regularization_param = bf_conf.get('regularization_param', 1.0E-4),
+                                             energy_floor         = bf_conf.get('energy_floor', 90),     # flooring small energy
+                                             sil_thresh           = bf_conf.get('sil_thresh', 1.0E+8),   # silence threshold
+                                             max_wa_l2norm        = bf_conf.get('max_wa_l2norm', 100.0), # Threshold so |wa|^2 <= max_wa_l2nor
+                                             min_frames           = bf_conf.get('min_frames', 128),
+                                             slowdown_after       = bf_conf.get('slowdown_after', 4096))
     elif bf_conf['type'] == 'gscrls':
         beamformer = SubbandGSCRLSBeamformer(afbs,
                                              beta  = bf_conf.get('beta', 0.97), # forgetting factor for recursive signal power est.
-                                             gamma = bf_conf.get('gamma', 0.1), # step size factor
+                                             gamma = bf_conf.get('gamma', 0.04), # step size factor
                                              mu    = bf_conf.get('mu', 0.97),   # recursive weight for covariance matrix est.
-                                             init_diagonal_load  = bf_conf.get('init_diagonal_load', 1.0E+6),
-                                             fixed_diagonal_load = bf_conf.get('fixed_diagonal_load', 0.01),
-                                             sil_thresh          = bf_conf.get('sil_thresh', 1.0E+8),
-                                             constraint_option   = bf_conf.get('constraint_option', 3), # Constrait method for active weight vector est.
-                                             alpha2              = bf_conf.get('alpha2', 10.0),         # 1st threshold so |wa|^2 <= alpha2
-                                             max_wa_l2norm       = bf_conf.get('max_wa_l2norm', 100.0)) # 2nd threshold so |wa|^2 <= max_wa_l2norm
+                                             init_diagonal_load   = bf_conf.get('init_diagonal_load', 1.0E+6),
+                                             regularization_param = bf_conf.get('regularization_param', 1.0E-2),
+                                             sil_thresh           = bf_conf.get('sil_thresh', 1.0E+8),
+                                             constraint_option    = bf_conf.get('constraint_option', 3), # Constrait method for active weight vector est.
+                                             alpha2               = bf_conf.get('alpha2', 10.0),         # 1st threshold so |wa|^2 <= alpha2
+                                             max_wa_l2norm        = bf_conf.get('max_wa_l2norm', 100.0), # 2nd threshold so |wa|^2 <= max_wa_l2norm
+                                             min_frames           = bf_conf.get('min_frames', 128),
+                                             slowdown_after       = bf_conf.get('slowdown_after', 4096))
+
     else:
         raise KeyError('Invalid beamformer type: {}'.format(bf_conf['type']))
 
@@ -197,6 +203,8 @@ def online_beamforming(h_fb, g_fb, D, M, m, r, input_audio_paths, out_path, ap_c
     if use_postfilter == True:
         spatial_filter.set_beamformer(beamformer.beamformer())
     for frame_no, buf in enumerate(sfb):
+        if frame_no % 128 == 0:
+            print('%0.2f sec. processed' %(frame_no * time_delta))
         total_energy += numpy.inner(buf, buf)
         wavefile.writeframes(numpy.array(buf, numpy.int16).tostring())
         elapsed_time += time_delta

@@ -4,5 +4,14 @@
                          [  76.0, 0.0, 2.0],
                          [ 113.0, 0.0, 2.0]],
  "target":{"positions":[[0.0, [-1.306379, null, null]]]},
- "beamformer":{"type":"gsclms"}
+ "beamformer":{"type":"gsclms",
+               "beta":0.97,
+               "gamma":0.01,
+               "init_diagonal_load":1.0E+6,
+               "regularization_param":1.0E-4,
+               "energy_floor":90,
+               "sil_thresh":1.0E+8,
+               "max_wa_l2norm":100.0,
+               "min_frames":128,
+               "slowdown_after":4096}
  }

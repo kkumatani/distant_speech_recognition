@@ -4,5 +4,16 @@
                          [  76.0, 0.0, 2.0],
                          [ 113.0, 0.0, 2.0]],
  "target":{"positions":[[0.0, [-1.306379, null, null]]]},
- "beamformer":{"type":"gscrls"}
+ "beamformer":{"type":"gscrls",
+               "beta":0.97,
+               "gamma":0.04,
+               "mu":0.97,
+               "init_diagonal_load":1.0E+6,
+               "regularization_param":1.0E-2,
+               "sil_thresh":1.0E+8,
+               "constraint_option":3,
+               "alpha2":10.0,
+               "max_wa_l2norm":100,
+               "min_frames":128,
+               "slowdown_after":4096}
  }
