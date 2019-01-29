@@ -167,7 +167,11 @@ class NormalFFTAnalysisBank
 
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void reset();
-  unsigned fftLen() const { return N_; }
+  unsigned fftlen() const { return N_; }
+
+#ifdef ENABLE_LEGACY_BTK_API
+  unsigned fftLen() const { return fftlen(); }
+#endif
 
 protected:
   void update_buf_();
@@ -275,11 +279,13 @@ class OverSampledDFTAnalysisBank
 
   virtual void reset();
 
-  unsigned fftLen()	 const { return M_; }
-  unsigned nBlocks()	 const { return 4; }
-  unsigned subsamplerate() const { return 2; }
+  unsigned fftlen() const { return M_; }
+  unsigned shiftlen() const { return D_; }
+
 #ifdef ENABLE_LEGACY_BTK_API
-  unsigned subSampRate() const { return subsamplerate(); }
+  unsigned fftLen()      const { return fftlen(); }
+  unsigned nBlocks()     const { return m_; }
+  unsigned subSampRate() const { return r_; }
 #endif
   bool is_end(){return is_end_;}
   int frame_no() const { return frame_no_; }
@@ -363,11 +369,10 @@ class PerfectReconstructionFFTAnalysisBank
 
   virtual void reset();
 
+#ifdef ENABLE_LEGACY_BTK_API
   unsigned fftLen()	 const { return Mx2_; }
   unsigned nBlocks()	 const { return 4; }
-  unsigned subsamplerate() const { return 2; }
-#ifdef ENABLE_LEGACY_BTK_API
-  unsigned subSampRate() const { return subsamplerate(); }
+  unsigned subSampRate() const { return 2; }
 #endif
 
   using PerfectReconstructionFilterBank::polyphase;

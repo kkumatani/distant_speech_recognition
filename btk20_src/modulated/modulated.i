@@ -49,15 +49,22 @@ oldimport = """
 class NormalFFTAnalysisBank : public VectorComplexFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
+  %feature("kwargs") fftlen;
+#ifdef ENABLE_LEGACY_BTK_API
   %feature("kwargs") fftLen;
+#endif
 public:
   NormalFFTAnalysisBank(VectorFloatFeatureStreamPtr& samp,
-			unsigned fftLen,  unsigned r = 1, unsigned windowType = 1,
-			const String& nm = "NormalFFTAnalysisBank");
+                        unsigned fftLen,  unsigned r = 1, unsigned windowType = 1,
+                        const String& nm = "NormalFFTAnalysisBank");
   ~NormalFFTAnalysisBank();
   virtual const gsl_vector_complex* next(int frameX = -5);
   virtual void reset();
+  unsigned fftlen() const;
+
+#ifdef ENABLE_LEGACY_BTK_API
   unsigned fftLen() const;
+#endif
 };
 
 class NormalFFTAnalysisBankPtr : public VectorComplexFeatureStreamPtr {
@@ -86,11 +93,12 @@ class OverSampledDFTAnalysisBank : public VectorComplexFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
   %feature("kwargs") is_end;
-  %feature("kwargs") fftLen;
-  %feature("kwargs") nBlocks;
-  %feature("kwargs") subsamplerate;
+  %feature("kwargs") fftlen;
+  %feature("kwargs") shiftlen;
   %feature("kwargs") frame_no;
 #ifdef ENABLE_LEGACY_BTK_API
+  %feature("kwargs") fftLen;
+  %feature("kwargs") nBlocks;
   %feature("kwargs") subSampRate;
 #endif
  public:
@@ -102,12 +110,13 @@ class OverSampledDFTAnalysisBank : public VectorComplexFeatureStream {
   virtual const gsl_vector_complex* next(int frameX = -5);
   virtual void reset();
   bool is_end();
-  unsigned fftLen() const;
-  unsigned nBlocks() const;
-  unsigned subsamplerate() const;
+  unsigned fftlen() const;
+  unsigned shiftlen() const;
   int frame_no() const;
 
 #ifdef ENABLE_LEGACY_BTK_API
+  unsigned fftLen() const;
+  unsigned nBlocks() const;
   unsigned subSampRate() const;
 #endif
 };
@@ -139,8 +148,6 @@ class OverSampledDFTSynthesisBank : public VectorFloatFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
   %feature("kwargs") is_end;
-  %feature("kwargs") fftLen;
-  %feature("kwargs") nBlocks;
   %feature("kwargs") input_source_vector;
   %feature("kwargs") no_stream_feature;
 #ifdef ENABLE_LEGACY_BTK_API
@@ -192,10 +199,9 @@ class PerfectReconstructionFFTAnalysisBank : public VectorComplexFeatureStream {
   %feature("kwargs") next;
   %feature("kwargs") reset;
   %feature("kwargs") is_end;
+#ifdef ENABLE_LEGACY_BTK_API
   %feature("kwargs") fftLen;
   %feature("kwargs") nBlocks;
-  %feature("kwargs") subsamplerate;
-#ifdef ENABLE_LEGACY_BTK_API
   %feature("kwargs") subSampRate;
 #endif
  public:
@@ -206,11 +212,10 @@ class PerfectReconstructionFFTAnalysisBank : public VectorComplexFeatureStream {
   double polyphase(unsigned m, unsigned n) const;
   virtual const gsl_vector_complex* next(int frameX = -5);
   virtual void reset();
-  unsigned fftLen() const;
-  unsigned nBlocks() const;
-  unsigned subsamplerate() const;
 
 #ifdef ENABLE_LEGACY_BTK_API
+  unsigned fftLen() const;
+  unsigned nBlocks() const;
   unsigned subSampRate() const;
 #endif
 };
