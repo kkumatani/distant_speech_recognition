@@ -6,12 +6,19 @@ A collection of Python functions for subband beamforming
 """
 import pickle, copy
 import numpy
+from numpy.linalg import inv
 
 from btk20.common import *
 from btk20.stream import *
 from btk20.feature import *
 from btk20.modulated import *
 from btk20.beamformer import *
+
+try:
+    import scipy.linalg
+    SCIPY_IMPORTED = True
+except ImportError:
+    SCIPY_IMPORTED = False
 
 
 def calc_la_delays(mpos, azimuth, sspeed = 343740.0, ref_micx = None):
@@ -25,7 +32,7 @@ def calc_la_delays(mpos, azimuth, sspeed = 343740.0, ref_micx = None):
     :param sspeed: speed of sound
     :type  sspeed: float
     :param ref_micx: the index of the reference microphone
-    :type  ref_micx: integer
+    :type  ref_micx: int
     """
 
     chanN  = len(mpos)
@@ -53,7 +60,7 @@ def calc_pa_delays(mpos, azimuth, polar_angle, sspeed = 343740.0, ref_micx = Non
     :param sspeed: speed of sound
     :type  sspeed: float
     :param ref_micx: the index of the reference microphone
-    :type  ref_micx: integer
+    :type  ref_micx: int
     """
 
     chanN  = len(mpos)
@@ -83,7 +90,7 @@ def calc_ca_delays(mpos, azimuth, polar_angle, sspeed = 343740.0):
     :param sspeed: speed of sound
     :type  sspeed: float
     :param ref_micx: the index of the reference microphone
-    :type  ref_micx: integer
+    :type  ref_micx: int
     """
     chanN  = len(mpos)
     delays = numpy.zeros(chanN, numpy.float)
@@ -165,11 +172,11 @@ class AnalysisFB(SpectralSource):
         :param filter_coeffs: analysis filter coefficients
         :type filter_coeffs: float vector
         :param M: Number of subbands
-        :type M: integer
+        :type M: int
         :param m: Filter length factor
-        :type m: integer
+        :type m: int
         :param r: Exponential decimation factor
-        :type r: integer
+        :type r: int
         :returns:
         """
         SpectralSource.__init__(self, sample_feat, M, M / 2**r)
@@ -224,6 +231,7 @@ class MultiChannelSource:
     def __init__(self, spec_sources):
         self._spec_sources = spec_sources # such as multiple analysis filter bank instances
         self._chan_num     = len(spec_sources)
+        self._shiftlen     = spec_sources[0].shiftlen()
         self._fftlen       = spec_sources[0].size()
         self._snapshot_array = SnapShotArrayPtr(self._fftlen, self._chan_num)
 
@@ -241,6 +249,7 @@ class MultiChannelSource:
 
         :returns: the signal energy for channel 'chan_no'.
         """
+        sigmaK = 0.0
         for chanX, afb in enumerate(self._spec_sources):
             subbands = numpy.array(afb.next())
             self._snapshot_array.set_samples(subbands, chanX)
@@ -287,7 +296,7 @@ def calc_blocking_matrix(vs , Nc = 1):
     :param vs: array manifold vector
     :type vs: vector
     :param Nc: number of constraints
-    :type Nc: integer
+    :type Nc: int
     :returns: Hermitian transpose of the blocking matrix (blocMat^H * vs ==0).
     """
     vsize    = len(vs)
@@ -361,9 +370,11 @@ class SubbandBeamformer:
         """
         self._spec_sources = spec_sources # such as multiple analysis filter bank instances
         self._chan_num     = len(spec_sources)
+        self._shiftlen     = spec_sources[0].shiftlen()
         self._fftlen       = spec_sources[0].size()
         self._fftlen2      = self._fftlen // 2
         for c in range(1, self._chan_num):
+            assert self._shiftlen == spec_sources[c].shiftlen(), "%d-th channel: inconsistent shift length" %c
             assert self._fftlen == spec_sources[c].size(), "%d-th channel: inconsistent FFT length" %c
 
         # beamformer instance
@@ -393,6 +404,9 @@ class SubbandBeamformer:
 
     def size(self):
         return self._fftlen
+
+    def shiftlen(self):
+        return self._shiftlen
 
     def save_active_weights(self, filename):
         with open(filename, 'w') as fp:
@@ -429,7 +443,7 @@ class SubbandGSCBeamformer(SubbandBeamformer):
         :param spec_sources: spectral sources such as OverSampledDFTAnalysisBankPtr()
         :type spec_sources: multiple complex stream objects
         :param Nc: no. linear constraints, total no. of look and null-steering directions
-        :type Nc: integer
+        :type Nc: int
         """
         SubbandBeamformer.__init__(self, spec_sources)
 
@@ -448,7 +462,7 @@ class SubbandGSCBeamformer(SubbandBeamformer):
         Compute the GSC beamformer weight given the target direction only
 
         :param samplerate: sampling rate
-        :type samplerate: integer
+        :type samplerate: int
         :param delays: time delays for the target source
         :type delays: float vector
         """
@@ -461,7 +475,7 @@ class SubbandGSCBeamformer(SubbandBeamformer):
         Compute the GSC beamformer weight given the target direction only
 
         :param samplerate: sampling rate
-        :type samplerate: integer
+        :type samplerate: int
         :param delays_t: time delays for the target source
         :type delays_t: float vector
         :param delays_js: time delays for the jammer(s)
@@ -483,7 +497,7 @@ class SubbandMVDRBeamformer(SubbandBeamformer):
         Initialize the subband beamformer.
 
         :param Nc: no. linear constraints, total no. of look and null-steering directions
-        :type Nc: integer
+        :type Nc: int
         """
         SubbandBeamformer.__init__(self, spec_sources)
 
@@ -502,7 +516,7 @@ class SubbandMVDRBeamformer(SubbandBeamformer):
         Compute super-directive beamformer weight
 
         :param samplerate: sampling rate
-        :type samplerate: integer
+        :type samplerate: int
         :param delays: time delays for the target source
         :type delays: float vector
         :param mpos: matrix that specifies the array geometry
@@ -867,3 +881,404 @@ class SubbandGSCRLSBeamformer(SubbandBeamformer):
     def reset(self):
         self._array_source.reset()
         self.reset_stats()
+
+
+class SubbandSMIMVDRBeamformer(SubbandMVDRBeamformer):
+    """
+    MVDR beamforming using sample matrix inversion
+    """
+    def __init__(self, spec_sources, Nc = 1):
+        """
+        Initialize the subband beamformer.
+
+        :param spec_sources: spectral sources such as OverSampledDFTAnalysisBankPtr()
+        :type spec_sources: multiple complex stream objects
+        :param Nc: no. linear constraints, total no. of look and null-steering directions
+        :type Nc: int
+        """
+        SubbandMVDRBeamformer.__init__(self, spec_sources, Nc)
+        self._array_source = MultiChannelSource(spec_sources)
+        self._noise_covariance_matrices  = None
+        self._noise_frame_num  = 0
+
+    def accu_stats_from_label(self, samplerate, target_labs = [(0.1, -1)], energy_threshold = 10):
+        """
+        Having a voice activity segmentation label, accumulate second order statistics (SOS)
+        for noise covariance matrix estimation.
+
+        :note: after loading all the stats, call self.finalize_stats() to finish computing the covariance matrix
+        :param samplerate: sampling rate
+        :type samplerate: int
+        :param target_lab: start and end time of the target signal in sec.
+        :type  target_lab: list of float pairs
+        :param energy_threshold: enegery threshold: ignore the frame if the energy is less than this
+        :type  energy_threshold: float
+        """
+
+        elapsed_time = 0.0
+        time_delta = self.shiftlen() / float(samplerate)
+        noise_frame_num  = 0
+        noise_covariance_matrices  = numpy.zeros((self._fftlen2+1, self._chan_num, self._chan_num), numpy.complex)
+        labx = 0
+        while True: # Process all the frames in one utterance (batch)
+            try:
+                is_target_source = False
+                if labx < len(target_labs):
+                    if elapsed_time >= target_labs[labx][0] and (elapsed_time <= target_labs[labx][1] or target_labs[labx][1] < 0):
+                        is_target_source = True
+                    elif elapsed_time > target_labs[labx][1]:
+                        labx += 1
+
+                energy = self._array_source.update_snapshot_array(chan_no = 0) / self._fftlen
+                if is_target_source == False and energy > energy_threshold:
+                    noise_frame_num += 1
+                    for m in range(self._fftlen2+1):
+                        XK = self._array_source.get_snapshot(m)
+                        noise_covariance_matrices[m] += numpy.outer(XK, numpy.conjugate(XK))
+
+                elapsed_time += time_delta
+            except StopIteration:
+                break
+
+        # accumulate total stats for the noise coherence covariance matrix
+        self._noise_frame_num += noise_frame_num
+        if self._noise_covariance_matrices is None:
+            self._noise_covariance_matrices = noise_covariance_matrices
+        else:
+            self._noise_covariance_matrices += noise_covariance_matrices
+
+    def finalize_stats(self):
+        """
+        divide the outer product of the noise snapshot vector by no. samples
+
+        """
+        assert self._noise_frame_num > 0,  "No noise stats accumulated; Use self.accu_stats_from_label()"
+        self._noise_covariance_matrices /= self._noise_frame_num
+
+    def calc_beamformer_weights(self, samplerate, delays, mu = 1e-4, update_active_weights = True):
+        """
+        Compute the MVDR beamformer weight
+
+        :param samplerate: sampling rate
+        :type samplerate: int
+        :param delays: time delays for the target source
+        :type delays: float vector
+        :param mu: diagonal loading
+        :type mu : float
+        :param update_active_weights: set a new active weight vector if true.
+        :type update_active_weights: bool
+        """
+        self._beamformer.calc_array_manifold_vectors(samplerate, delays)
+        for m in range(self._fftlen2+1):
+            self._beamformer.set_noise_spatial_spectral_matrix(m, self._noise_covariance_matrices[m])
+        self._beamformer.set_all_diagonal_loading(mu)
+        self._beamformer.calc_mvdr_weights(samplerate, dthreshold = 1.0E-8, calc_inverse_matrix = True)
+        if update_active_weights  == True:
+            self.set_active_weights()
+
+
+class SubbandSOSBatchBeamformer(SubbandBeamformer):
+    """
+    Basic beamformer class for batch processing
+    """
+    def __init__(self, spec_sources):
+        """
+        Initialize the subband beamformer.
+
+        :param spec_sources: spectral sources such as OverSampledDFTAnalysisBankPtr()
+        :type spec_sources: multiple complex stream objects
+        """
+        SubbandBeamformer.__init__(self, spec_sources)
+        # obtain the multi-channel subband input to process
+        self._array_source = MultiChannelSource(spec_sources)
+
+        self._isamp = 0
+
+        # weight vectors for the beamformer
+        # conjugate array manifold vectors
+        self._wqH = numpy.ones((self._fftlen2+1, self._chan_num), numpy.complex)
+
+        # will have spatial covariace for target and noise sources with calc_sos()
+        self.reset_stats()
+
+    def accu_stats_from_label(self, samplerate, target_labs = [(0.1, -1)], energy_threshold = 10):
+        """
+        Given a voice activity segmentation label, accumulate second order statistics (SOS) for
+        target and nose covariance matrix.
+
+        :note: after loading all the stats, call self.finalize_stats() to finish computing the covariance matrices
+        :param samplerate: sampling rate
+        :type samplerate: int
+        :param target_lab: start and end time of the target signal in sec.
+        :type  target_lab: list of float pairs
+        :param energy_threshold: enegery threshold: ignore the frame if the energy is less than this
+        :type  energy_threshold: float
+        """
+
+        elapsed_time = 0.0
+        time_delta = self.shiftlen() / float(samplerate)
+        target_frame_counts = numpy.zeros(self._fftlen2+1, numpy.int)
+        noise_frame_counts  = numpy.zeros(self._fftlen2+1, numpy.int)
+        target_covariance_matrices = numpy.zeros((self._fftlen2+1, self._chan_num, self._chan_num), numpy.complex)
+        noise_covariance_matrices  = numpy.zeros((self._fftlen2+1, self._chan_num, self._chan_num), numpy.complex)
+        labx = 0
+        while True: # Process all the frames in one utterance (batch)
+            try:
+                # Determine whether the current frame is the target signal or not.
+                is_target_source = False
+                if labx < len(target_labs):
+                    if elapsed_time >= target_labs[labx][0] and (elapsed_time <= target_labs[labx][1] or target_labs[labx][1] < 0):
+                        is_target_source = True
+                    elif elapsed_time > target_labs[labx][1]:
+                        labx += 1
+
+                energy = self._array_source.update_snapshot_array(chan_no = 0) / self._fftlen
+                if energy > energy_threshold:
+                    # Increment the number of frames for each source
+                    if is_target_source == True:
+                        target_frame_counts += 1
+                    else:
+                        noise_frame_counts += 1
+                    # Add the covariance matrix snapshot at each frequency bin
+                    for m in range(self._fftlen2+1):
+                        XK = self._array_source.get_snapshot(m)
+                        SigmaXX = numpy.outer(XK, numpy.conjugate(XK))
+                        if is_target_source == True:
+                            target_covariance_matrices[m] += SigmaXX
+                        else:
+                            noise_covariance_matrices[m] += SigmaXX
+            except StopIteration:
+                break
+            elapsed_time += time_delta
+
+        # Accumulate total stats for (spatial) covariance matrix
+        # for the target source
+        self._target_frame_counts += target_frame_counts
+        if self._target_covariance_matrices is None:
+            self._target_covariance_matrices = target_covariance_matrices
+        else:
+            self._target_covariance_matrices += target_covariance_matrices
+
+        # for the interfering source (jammer)
+        self._noise_frame_counts += noise_frame_counts
+        if self._noise_covariance_matrices is None:
+            self._noise_covariance_matrices = noise_covariance_matrices
+        else:
+            self._noise_covariance_matrices += noise_covariance_matrices
+
+    def accu_stats_from_tfmask(self, samplerate, mask_t, mask_j, energy_threshold = 10):
+        """
+        Given target and noise activity indicators at each frequency bin, i.e, time-frequency (TF) mask,
+        accumulate second order statistics (SOS).
+
+        :note: after loading all the stats, call self.finalize_stats() to finish computing the covariance matrices
+        :param samplerate: sampling rate
+        :type samplerate: int
+        :param mask_t: TF mask whose element indicates the activity of the target source
+        :type mask_t: "no. frames" x "no. subbands" float matrix
+        :param mask_j: TF mask, indicator of the noise presence
+        :type mask_j: "no. frames" x "no. subbands" float matrix
+        """
+
+        target_frame_counts = numpy.zeros(self._fftlen2+1, numpy.int)
+        noise_frame_counts  = numpy.zeros(self._fftlen2+1, numpy.int)
+        target_covariance_matrices = numpy.zeros((self._fftlen2+1, self._chan_num, self._chan_num), numpy.complex)
+        noise_covariance_matrices  = numpy.zeros((self._fftlen2+1, self._chan_num, self._chan_num), numpy.complex)
+        frame_no = 0
+        while True: # Process all the frames in one utterance (batch)
+            try:
+                energy = self._array_source.update_snapshot_array(chan_no = 0) / self._fftlen
+                if energy > energy_threshold:
+                    for m in range(self._fftlen2+1):
+                        if mask_t[frame_no][m] > 0 or  mask_j[frame_no][m] > 0:
+                            XK = self._array_source.get_snapshot(m)
+                            SigmaXX = numpy.outer(XK, numpy.conjugate(XK))
+                            # accumulate SOS for the target source
+                            if mask_t[frame_no][m] > 0:
+                                target_frame_counts[m] += mask_t[frame_no][m]
+                                target_covariance_matrices[m] += mask_t[frame_no][m] * SigmaXX
+                            # accumulate SOS for the noise source
+                            if mask_j[frame_no][m] > 0:
+                                noise_frame_counts[m] += mask_j[frame_no][m]
+                                noise_covariance_matrices[m] += mask_j[frame_no][m] * SigmaXX
+            except StopIteration:
+                break
+
+            frame_no += 1
+
+        # accumulate stats for spatial covariance matrices.
+        self._target_frame_counts += target_frame_counts
+        if self._target_covariance_matrices is None:
+            self._target_covariance_matrices = target_covariance_matrices
+        else:
+            self._target_covariance_matrices += target_covariance_matrices
+
+        self._noise_frame_counts += noise_frame_counts
+        if self._noise_covariance_matrices is None:
+            self._noise_covariance_matrices = noise_covariance_matrices
+        else:
+            self._noise_covariance_matrices += noise_covariance_matrices
+
+    def finalize_stats(self):
+        """
+        Implement a function to normalize the speech and noise covariance matrices
+        """
+        pass
+
+    def __iter__(self):
+        """
+        Return the next spectral sample.
+        """
+
+        while True:
+            self._array_source.update_snapshot_array()
+            output = numpy.zeros(self._fftlen, numpy.complex)
+
+            for m in range(self._fftlen2+1):
+                output[m] = numpy.dot(self._wqH[m], self._array_source.get_snapshot(m))
+                if m > 0 and m < self._fftlen2:
+                    output[self._fftlen - m] = numpy.conjugate(output[m])
+
+            yield output
+            self._isamp += 1
+
+    def reset_stats(self):
+        self._target_covariance_matrices = None
+        self._noise_covariance_matrices  = None
+        self._target_frame_counts = numpy.zeros(self._fftlen2+1, numpy.int)
+        self._noise_frame_counts  = numpy.zeros(self._fftlen2+1, numpy.int)
+
+    def reset(self):
+        self._array_source.reset()
+        self._isamp = 0
+
+
+def improve_matrix_condition(x, gamma):
+    """
+    Perform diagonal loading in the same way as https://github.com/fgnt/nn-gev/blob/master/fgnt/beamforming.py
+    """
+    scale = gamma * numpy.trace(x) / x.shape[-1]
+    scaled_eye = numpy.eye(x.shape[-1]) * scale
+
+    return (x + scaled_eye) / (1 + gamma)
+
+
+class SubbandBlindMVDRBeamformer(SubbandSOSBatchBeamformer):
+    """
+    MVDR beamforming without the look direction, also known as MMSE beamforming.
+    """
+    def __init__(self, spec_sources):
+        """
+        Initialize the subband blind MVDR beamformer.
+
+        :param spec_sources: spectral sources such as OverSampledDFTAnalysisBankPtr()
+        :type spec_sources: multiple complex stream objects
+        """
+        SubbandSOSBatchBeamformer.__init__(self, spec_sources)
+
+
+    def calc_beamformer_weights(self, ref_micx=0, offset=0.0):
+        """
+        Compute the MVDR beamformer's weight vector in a blind manner.
+
+        :note: This has to be called after executing self.accu_stats_from_{label|tfmask}() and self.finalize_stats()
+        :param ref_micx: the index of the reference microphone
+        :type ref_micx: int
+        :param offset: offset to avoid zero division for weight normalization
+        :type offset: float
+        """
+        if self._target_covariance_matrices is None:
+            raise RuntimeError('No target signal SOS at frequency %d' %m)
+        if self._noise_covariance_matrices is None:
+            raise RuntimeError('No noise signal SOS at frequency %d' %m)
+        assert offset >= 0 and offset <=1, "The offset value %f is out of [0, 1]" %(offset)
+
+        u = numpy.zeros(self._chan_num)
+        u[ref_micx] = 1.0
+        for m in range(self._fftlen2+1):
+            try:
+                no = numpy.dot(inv(self._noise_covariance_matrices[m]), self._target_covariance_matrices[m])
+                self._wqH[m, :] = numpy.conjugate(numpy.dot(no, u) / (offset + numpy.trace(no)))
+            except numpy.linalg.linalg.LinAlgError:
+                raise ArithmeticError('Matrix inversion failed\nAdd a small value to the diagonal component of the covariance matrix')
+
+    def finalize_stats(self, gamma = 1e-6):
+        """
+        calculate the speech and noise covariance matrices after accumulating sufficient second order statistics (SOS)
+
+        :param gamma: diagonal loading parameter for the noise source
+        :type gamma: float
+        """
+        assert min(self._target_frame_counts) > 0, "No target signal stats accumulated; Use self.accu_stats_from_label() or accu_stats_from_tfmask()"
+        assert min(self._noise_frame_counts) > 0,  "No noise stats accumulated; Use self.accu_stats_from_label() or accu_stats_from_tfmask()"
+
+        for m in range(self._fftlen2+1):
+            self._target_covariance_matrices[m] /= self._target_frame_counts[m]
+            self._noise_covariance_matrices[m]  /= self._noise_frame_counts[m]
+            if gamma > 0:# Add a diagonal component
+                self._noise_covariance_matrices[m] = improve_matrix_condition(self._noise_covariance_matrices[m], gamma)
+
+
+class SubbandGEVBeamformer(SubbandBlindMVDRBeamformer):
+    """
+    Generalized eigenvector beamformer
+    """
+    def __init__(self, spec_sources):
+        """
+        Initialize the subband beamformer.
+
+        :param spec_sources: spectral sources such as OverSampledDFTAnalysisBankPtr()
+        :type spec_sources: multiple complex stream objects
+        """
+        if SCIPY_IMPORTED == False:
+            raise ImportError("Failed to import scipy for GEV beamforming")
+
+        SubbandBlindMVDRBeamformer.__init__(self, spec_sources)
+
+    def calc_beamformer_weights(self):
+        """
+        Compute the GEV beamformer's weight vector.
+
+        :note: This has to be called after executing self.accu_stats_from_{label|tfmask}() and self.finalize_stats()
+        """
+        if self._target_covariance_matrices is None:
+            raise RuntimeError('No target signal SOS at frequency %d' %m)
+        if self._noise_covariance_matrices is None:
+            raise RuntimeError('No noise signal SOS at frequency %d' %m)
+
+        for m in range(self._fftlen2+1):
+            try:
+                eigenvals, eigenvecs = scipy.linalg.eigh(self._target_covariance_matrices[m],
+                                                         self._noise_covariance_matrices[m])
+                self._wqH[m, :] = eigenvecs[:, -1] # This 'will' be conjugated later
+            except numpy.linalg.linalg.LinAlgError:
+                raise ArithmeticError('GEV failed\nAdd a small value to the diagonal component of the covariance matrix')
+
+            if m > 0:
+                # Follow Paderborn's impl; Align phase information over all the frequency bins.
+                self._wqH[m, :] *= numpy.exp(-1j * numpy.angle(numpy.inner(self._wqH[m], numpy.conjugate(self._wqH[m-1]))))
+
+        # conjugate the beamformer weight
+        for m in range(self._fftlen2+1):
+            self._wqH[m] = numpy.conjugate(self._wqH[m])
+
+    def finalize_stats(self, gamma = 1e-6):
+        """
+        calculate the speech and noise covariance matrices after accumulating sufficient second order statistics (SOS)
+
+        :param gamma: diagonal loading parameter for the noise source
+        :type gamma: float
+        """
+        assert min(self._target_frame_counts) > 0, "No target signal stats accumulated; Use self.accu_stats_from_label() or accu_stats_from_tfmask()"
+        assert min(self._noise_frame_counts) > 0,  "No noise stats accumulated; Use self.accu_stats_from_label() or accu_stats_from_tfmask()"
+
+        for m in range(self._fftlen2+1):
+            # Skip cov matrix normalization for the target source because of no impact on the GEV solution
+            # self._target_covariance_matrices[m] /= self._target_frame_counts[m]
+
+            self._noise_covariance_matrices[m] /= self._noise_frame_counts[m]
+            if gamma > 0:# Add a diagonal component
+                self._noise_covariance_matrices[m] = improve_matrix_condition(self._noise_covariance_matrices[m], gamma)
+            # Normalize the noise covariance matrix with no. channels unlike Paderborn's impl.
+            # This normalization prevents artificial signal amplification.
+            self._noise_covariance_matrices[m] /= (numpy.trace(self._noise_covariance_matrices[m]) / self._chan_num)

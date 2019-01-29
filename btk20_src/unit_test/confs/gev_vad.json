@@ -1,0 +1,5 @@
+{
+ "target":{"vad_label":[[1.5, 4.0]]},
+ "beamformer":{"type":"gev",
+               "energy_threshold":10}
+}

@@ -1,0 +1,7 @@
+{
+ "target":{"vad_label":[[1.5, 4.0]]},
+ "beamformer":{"type":"bmvdr",
+               "energy_threshold":10,
+               "ref_micx":0,
+               "offset":0.0}
+}

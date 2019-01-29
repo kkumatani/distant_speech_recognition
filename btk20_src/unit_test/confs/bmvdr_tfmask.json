@@ -1,0 +1,8 @@
+{
+ "target":{"tfmask_path":"data/CMU/R1/M1005/KINECT/RAW/segmented/U1001_1M_16k.speech.tfmask.pickle"},
+ "noises":[{"tfmask_path":"data/CMU/R1/M1005/KINECT/RAW/segmented/U1001_1M_16k.noise.tfmask.pickle"}],
+ "beamformer":{"type":"bmvdr",
+               "energy_threshold":10,
+               "ref_micx":0,
+               "offset":0.0}
+}

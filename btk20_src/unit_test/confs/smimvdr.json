@@ -1,0 +1,11 @@
+{"array_type":"linear",
+ "microphone_positions":[[-113.0, 0.0, 2.0],
+                         [  36.0, 0.0, 2.0],
+                         [  76.0, 0.0, 2.0],
+                         [ 113.0, 0.0, 2.0]],
+ "target":{"positions":[[0.0, [-1.306379, null, null]]],
+           "vad_label":[[1.5, 4.0]]},
+ "beamformer":{"type":"smimvdr",
+               "mu":1e-4,
+               "energy_threshold":10}
+}
