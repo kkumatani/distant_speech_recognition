@@ -167,8 +167,8 @@ if __name__ == '__main__':
                  'tdoae':{'type':'gcc_phat',
                           'shiftlen':8192,
                           'fftlen':8192*2,
-                          'energy_threshold':512, # Energy threshold for sound detection
-                          'cc_threshold':0.16, # GCC threshold for sound detection
+                          'energy_threshold':128, # Energy threshold for sound detection
+                          'cc_threshold':0.12, # GCC threshold for sound detection
                           'minimum_pairs':5,  # Minimum number of mic. pairs with a GCC above the threshold
                           'pair_ids':[(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2,3)],
                           }
