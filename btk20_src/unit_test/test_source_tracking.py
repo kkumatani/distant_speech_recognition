@@ -17,7 +17,7 @@ SSPEED = 343740.0
 
 def check_tracker_conf_format(ap_conf):
     """
-    Check the format of the JSON configuration for speaker tracking
+    Check the JSON data structure for speaker tracking
     """
 
     tracker_conf = ap_conf['tracker']
@@ -71,9 +71,9 @@ def ekf_source_tracking(input_audio_paths, ap_conf, samplerate, tdoa_path, trj_p
                                     fftlen = fftlen,
                                     samplerate = samplerate,
                                     mpos = numpy.array(ap_conf['microphone_positions']),
-                                    energy_threshold = tracker_conf.get('energy_threshold', 64),
-                                    minimum_pairs = tracker_conf.get('minimum_pairs', 2),
-                                    threshold     = tracker_conf.get('cc_threshold ', 0.1),
+                                    energy_threshold = tracker_conf.get('energy_threshold', 100),
+                                    minimum_pairs = tracker_conf.get('minimum_pairs', 3),
+                                    threshold     = tracker_conf.get('cc_threshold ', 0.11),
                                     sspeed = SSPEED)
 
     if 'initial_estimate' in tracker_conf:
@@ -230,8 +230,8 @@ if __name__ == '__main__':
                             'shiftlen':4096,
                             'fftlen':8192,
                             'energy_threshold':100, # Energy threshold for sound detection
-                            'cc_threshold':0.1, # GCC threshold for sound detection
-                            'minimum_pairs':2,  # Minimum number of mic. pairs with a GCC above the threshold
+                            'cc_threshold':0.11, # GCC threshold for sound detection
+                            'minimum_pairs':3,  # Minimum number of mic. pairs with a GCC above the threshold
                             'initial_estimate':[0], # Initial position estimate
                             'pair_ids':[(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2,3)],
                             'sigmaV2':4.0E-04, # Diagonal loading factor for measurement noise covariance matrix
