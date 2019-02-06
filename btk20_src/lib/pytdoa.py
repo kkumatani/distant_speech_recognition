@@ -27,6 +27,7 @@ class PHATFeature:
         self._src2 = src2
         self._fftlen2 = fftlen // 2
         self._energy_threshold = energy_threshold
+        self.reset()
 
     def next(self, frame_no):
         """
@@ -52,6 +53,15 @@ class PHATFeature:
 
         return irfft(cross_spectrum)
 
+    def __iter__(self):
+        while True:
+            yield self.next(self._isamp)
+            self._isamp += 1
+
+    def reset(self):
+        self._isamp = 0
+        self._src1.reset()
+        self._src2.reset()
 
 class TDOAFeature:
     """
@@ -72,6 +82,7 @@ class TDOAFeature:
         self._fftlen  = fftlen
         self._fftlen2 = fftlen // 2
         self._Ts      = 1.0 / samplerate
+        self.reset()
 
     def next(self, frame_no):
         """
@@ -102,6 +113,14 @@ class TDOAFeature:
         else:
             return best_peak
 
+    def __iter__(self):
+        while True:
+            yield self.next(self._isamp)
+            self._isamp += 1
+
+    def reset(self):
+        self._isamp = 0
+        self._src.reset()
 
 class MicrophonePair:
     """
@@ -161,12 +180,15 @@ class MicrophonePairSource(MicrophonePair):
     def next(self, frame_no):
         return self._src.next(frame_no)
 
+    def reset(self):
+        self._src.reset()
+
 
 class TDOAFeatureVector:
     """
     Concatenate multiple TDOA estimates with a higher GCC peak than the threshold
     """
-    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.2, c = 343000.0):
+    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.12, c = 343000.0):
         """
         Initialize a TDOA feature vecotr
 
@@ -186,6 +208,7 @@ class TDOAFeatureVector:
         self._minimum_pairs = minimum_pairs
         self._threshold     = threshold
         self._c             = c
+        self.reset()
 
     def tdoa(self, mic_pair, x_cart):
         """
@@ -229,6 +252,7 @@ class TDOAFeatureVector:
         :type  xk_predict: float vector
         :param observations: list of observation objects for microphone pairs
         :type  observations: MicrophonePairObservation
+        :returns: transform matrix that approximates a mapping function between the position and time delay
         """
         H = numpy.zeros([len(observations), len(xk_predict)], numpy.float)
         for rowx, obs in enumerate(observations):
@@ -271,6 +295,16 @@ class TDOAFeatureVector:
     def mic_pair_tdoa(self):
         return self._tdoabuf
 
+    def __iter__(self):
+        while True:
+            yield self.next(self._isamp)
+            self._isamp += 1
+
+    def reset(self):
+        self._isamp = 0
+        for mic_pair_src in self._mic_pair_srcs:
+            mic_pair_src.reset()
+
 def are_collinear_and_consistent_direction(points):
     """
     Examine two conditions:
@@ -300,7 +334,7 @@ class FarfieldLinearArrayTDOAFeatureVector(TDOAFeatureVector):
     Concatenate together those TDOAs whose CC peak exceeds a given threshold
     in the case of the linear microphone array under the far-field (FF) assumption
     """
-    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.3, c = 343000.0):
+    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.12, c = 343000.0):
         """
         Initialize a TDOA feature for a linear array under the FF assumption
 
@@ -411,7 +445,7 @@ class FarfieldCircularArrayTDOAFeatureVector(TDOAFeatureVector):
     Concatenate together those TDOAs whose cross-correlation peak is above a given threshold
     for the case of a circular microphone array under a far-field assumption
     """
-    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.3, c = 343000.0):
+    def __init__(self, mic_pair_srcs, mpos, minimum_pairs = 2, threshold = 0.12, c = 343000.0):
         """
         :param mpos: microphone positions
         :type  mpos: matrix[no. microphones][1]
