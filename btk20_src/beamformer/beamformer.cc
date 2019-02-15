@@ -1251,7 +1251,7 @@ SubbandGSC::~SubbandGSC()
 const gsl_vector_complex* SubbandGSC::next(int frame_no)
 {
   if (frame_no == frame_no_) return vector_;
-  
+
   const gsl_vector_complex* snapShot_f;
   gsl_vector_complex* wl_f;
   gsl_vector_complex* wq_f;
@@ -1276,7 +1276,7 @@ const gsl_vector_complex* SubbandGSC::next(int frame_no)
       snapShot_f = snapshot_array_->snapshot(fbinX);
       wq_f = bfweight_vec_[0]->wq_f(fbinX);
       wl_f = bfweight_vec_[0]->wl_f(fbinX);
-      
+
       calc_gsc_output( snapShot_f, wl_f,  wq_f, &val, normalize_weight_ );
       gsl_vector_complex_set(vector_, fbinX, val);
     }
@@ -1399,7 +1399,7 @@ void SubbandGSC::zero_active_weights()
 
 /**
    @brief solve the scaling ambiguity
-   
+
    @param gsl_matrix_complex *W[in/out] MxN unmixing matrix. M and N are the number of sources and sensors, respectively.
    @param float dThreshold[in]
  */

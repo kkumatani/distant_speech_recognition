@@ -416,7 +416,7 @@ class SubbandMVDR : public SubbandDS {
   %feature("kwargs") reset;
   %feature("kwargs") clear_channel;
   %feature("kwargs") calc_mvdr_weights;
-  %feature("kwargs") mvdir_weights;
+  %feature("kwargs") mvdr_weights;
   %feature("kwargs") noise_spatial_spectral_matrix;
   %feature("kwargs") set_noise_spatial_spectral_matrix;
   %feature("kwargs") set_diffuse_noise_model;
@@ -444,7 +444,7 @@ class SubbandMVDR : public SubbandDS {
   virtual void reset();
   virtual void clear_channel();
   bool calc_mvdr_weights(float samplerate, float dthreshold = 1.0E-8, bool calc_inverse_matrix = true);
-  const gsl_vector_complex* mvdir_weights(unsigned fbinX);
+  const gsl_vector_complex* mvdr_weights(unsigned fbinX);
   const gsl_matrix_complex *noise_spatial_spectral_matrix(unsigned fbinX);
   bool set_noise_spatial_spectral_matrix(unsigned fbinX, gsl_matrix_complex* Rnn);
   bool set_diffuse_noise_model(const gsl_matrix* micPositions, float samplerate, float sspeed = 343740.0);

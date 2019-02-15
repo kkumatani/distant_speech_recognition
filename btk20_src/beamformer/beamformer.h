@@ -343,7 +343,7 @@ class SubbandMVDR : public SubbandDS {
   virtual const gsl_vector_complex* next(int frame_no = -5);
   virtual void clear_channel();
   bool calc_mvdr_weights(float samplerate, float dThreshold = 1.0E-8, bool calcInverseMatrix = true);
-  const gsl_vector_complex* mvdir_weights(unsigned fbinX) const { return wmvdr_[fbinX]; }
+  const gsl_vector_complex* mvdr_weights(unsigned fbinX) const { return wmvdr_[fbinX]; }
 
   const gsl_matrix_complex *noise_spatial_spectral_matrix(unsigned fbinX) const { return R_[fbinX]; }
   bool set_noise_spatial_spectral_matrix(unsigned fbinX, gsl_matrix_complex* Rnn);
@@ -364,7 +364,7 @@ class SubbandMVDR : public SubbandDS {
 #ifdef ENABLE_LEGACY_BTK_API
   void clearChannel(){ clear_channel(); }
   bool calcMVDRWeights( float sampleRate, float dThreshold = 1.0E-8, bool calcInverseMatrix = true ){ return calc_mvdr_weights(sampleRate, dThreshold, calcInverseMatrix); }
-  const gsl_vector_complex* getMVDRWeights(unsigned fbinX){ return mvdir_weights(fbinX); }
+  const gsl_vector_complex* getMVDRWeights(unsigned fbinX){ return mvdr_weights(fbinX); }
   const gsl_matrix_complex *getNoiseSpatialSpectralMatrix(unsigned fbinX){ return noise_spatial_spectral_matrix(fbinX); }
   bool setNoiseSpatialSpectralMatrix(unsigned fbinX, gsl_matrix_complex* Rnn){ return set_noise_spatial_spectral_matrix(fbinX, Rnn); }
   bool setDiffuseNoiseModel(const gsl_matrix* micPositions, float sampleRate, float sspeed = 343740.0){ return set_diffuse_noise_model(micPositions, sampleRate, sspeed); }

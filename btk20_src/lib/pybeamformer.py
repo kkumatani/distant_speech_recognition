@@ -16,10 +16,18 @@ from btk20.beamformer import *
 
 try:
     import scipy.linalg
+    import scipy.optimize
     SCIPY_IMPORTED = True
 except ImportError:
     SCIPY_IMPORTED = False
 
+try:
+    from pygsl import multiminimize
+    #from pygsl import sf
+    import pygsl.errors as errors
+    PYGSL_IMPORTED = True
+except ImportError:
+    PYGSL_IMPORTED = False
 
 def calc_la_delays(mpos, azimuth, sspeed = 343740.0, ref_micx = None):
     """
@@ -338,7 +346,7 @@ def calc_lcmv_weight(W_t, W_j):
     num_targets = len(W_t)
     num_jammers = len(W_j)
     chan_num = len(W_t[0])
-    assert chan_num == len(W_j[0]), 'Inconsisten no. channels: %d != %d' %(chan_num, len(W_j[0]))
+    assert chan_num == len(W_j[0]), 'Inconsistent no. channels: %d != %d' %(chan_num, len(W_j[0]))
 
     Nc = num_targets + num_jammers # no. constraints
     Ct = numpy.zeros((Nc, chan_num), numpy.complex) # Combined array manifold vectors
@@ -377,11 +385,20 @@ class SubbandBeamformer:
             assert self._shiftlen == spec_sources[c].shiftlen(), "%d-th channel: inconsistent shift length" %c
             assert self._fftlen == spec_sources[c].size(), "%d-th channel: inconsistent FFT length" %c
 
+        # obtain the multi-channel subband input to process
+        self._array_source = MultiChannelSource(spec_sources)
+
         # beamformer instance
         self._beamformer = None
+        self._wqH = None
+        self._BmH = None
+        self._waH = None
 
     def beamformer(self):
         return self._beamformer
+
+    def spec_sources(self):
+        return self._spec_sources
 
     def __iter__(self):
         """
@@ -402,11 +419,26 @@ class SubbandBeamformer:
     def next_speaker(self):
         pass
 
+    def chan_num(self):
+        return self._chan_num
+
     def size(self):
         return self._fftlen
 
     def shiftlen(self):
         return self._shiftlen
+
+    def calc_entire_weights(self):
+        assert self._wqH is not None, "The quiescent beamformer weights have to be computed"
+
+        if self._BmH is None or self._waH is None:
+            return self._wqH
+
+        woH = numpy.zeros((self._fftlen, self._chan_num), numpy.complex)
+        for m in range(self._fftlen2+1):
+            woH[m][:] = self._wqH[m] - numpy.dot(self._waH[m], self._BmH[m])
+
+        return woH
 
     def save_active_weights(self, filename):
         with open(filename, 'w') as fp:
@@ -424,11 +456,13 @@ class SubbandBeamformer:
         if self._beamformer is None:
             raise NotImplementedError("Undefined beamformer object")
 
+        assert self._waH is not None, "The active weight vectors have to be set"
         for fbinX in range(self._fftlen2+1):
             packed_wa = numpy.zeros(2 * (self._chan_num - self._Nc), numpy.float)
             for i in range(self._chan_num - self._Nc):
                 packed_wa[2*i]   = numpy.real(self._waH[fbinX][i])
                 packed_wa[2*i+1] = numpy.imag(self._waH[fbinX][i])
+
             self._beamformer.set_active_weights_f(fbinX, packed_wa)
 
 
@@ -470,6 +504,8 @@ class SubbandGSCBeamformer(SubbandBeamformer):
         if update_active_weights  == True:
             self.set_active_weights()
 
+        self._wq = numpy.array([self._beamformer.get_weights(m) for m in range(self._fftlen2+1)], numpy.complex)
+
     def calc_beamformer_weights_n(self, samplerate, delays_t, delays_js, update_active_weights = True):
         """
         Compute the GSC beamformer weight given the target direction only
@@ -486,6 +522,8 @@ class SubbandGSCBeamformer(SubbandBeamformer):
         self._beamformer.calc_gsc_weights_n(samplerate, delays_t, delays_js, self._Nc)
         if update_active_weights  == True:
             self.set_active_weights()
+
+        self._wqH = numpy.conjugate(numpy.array([self._beamformer.get_weights(m) for m in range(self._fftlen2+1)], numpy.complex))
 
 
 class SubbandMVDRBeamformer(SubbandBeamformer):
@@ -535,6 +573,8 @@ class SubbandMVDRBeamformer(SubbandBeamformer):
         if update_active_weights  == True:
             self.set_active_weights()
 
+        self._wqH = numpy.conjugate(numpy.array([self._beamformer.mvdr_weights(m) for m in range(self._fftlen2+1)], numpy.complex))
+
 
 class SubbandGSCLMSBeamformer(SubbandBeamformer):
     """
@@ -583,8 +623,6 @@ class SubbandGSCLMSBeamformer(SubbandBeamformer):
         :type Nc: int
         """
         SubbandBeamformer.__init__(self, spec_sources)
-        # obtain the multi-channel subband input to process
-        self._array_source = MultiChannelSource(spec_sources)
         self._Nc = Nc # No. linear constraints
 
         # weight vectors for the beamformer
@@ -740,8 +778,6 @@ class SubbandGSCRLSBeamformer(SubbandBeamformer):
         Initialize the subband Griffiths-Jim beamformer.
         """
         SubbandBeamformer.__init__(self, spec_sources)
-        # obtain the multi-channel subband input to process
-        self._array_source = MultiChannelSource(spec_sources)
         self._Nc = Nc
 
         # weight vectors for the beamformer
@@ -897,7 +933,6 @@ class SubbandSMIMVDRBeamformer(SubbandMVDRBeamformer):
         :type Nc: int
         """
         SubbandMVDRBeamformer.__init__(self, spec_sources, Nc)
-        self._array_source = MultiChannelSource(spec_sources)
         self._noise_covariance_matrices  = None
         self._noise_frame_num  = 0
 
@@ -976,6 +1011,8 @@ class SubbandSMIMVDRBeamformer(SubbandMVDRBeamformer):
         if update_active_weights  == True:
             self.set_active_weights()
 
+        self._wqH = numpy.conjugate(numpy.array([self._beamformer.mvdr_weights(m) for m in range(self._fftlen2+1)], numpy.complex))
+
 
 class SubbandSOSBatchBeamformer(SubbandBeamformer):
     """
@@ -989,8 +1026,6 @@ class SubbandSOSBatchBeamformer(SubbandBeamformer):
         :type spec_sources: multiple complex stream objects
         """
         SubbandBeamformer.__init__(self, spec_sources)
-        # obtain the multi-channel subband input to process
-        self._array_source = MultiChannelSource(spec_sources)
 
         self._isamp = 0
 
@@ -1282,3 +1317,529 @@ class SubbandGEVBeamformer(SubbandBlindMVDRBeamformer):
             # Normalize the noise covariance matrix with no. channels unlike Paderborn's impl.
             # This normalization prevents artificial signal amplification.
             self._noise_covariance_matrices[m] /= (numpy.trace(self._noise_covariance_matrices[m]) / self._chan_num)
+
+
+class SubbandHOSBatchBeamformer(SubbandBeamformer):
+
+    def __init__(self, upper_beamformers, src_index = 0, Nc = 1, alpha = 0.01):
+
+        if PYGSL_IMPORTED == False and SCIPY_IMPORTED == False:
+            raise ImportError("pygsl or scipy has to be imported for HOS beamforming")
+
+        if Nc > 2:
+            raise NotImplementedError('N implemented in the case of NC > 2')
+
+        SubbandBeamformer.__init__(self, upper_beamformers[src_index].spec_sources())
+
+        # beamformer weight at an upper branch
+        self._upper_beamformers = upper_beamformers
+
+        self._num_sources = len(upper_beamformers)
+        self._Nc = Nc
+        self._half_band_shift = False
+        self._srcX = src_index # the source index that you want to extract
+        self._isamp = 0
+        # regularization term
+        self._alpha = alpha
+
+        # input vectors [frameN][chanN]
+        self._observations = None
+        # conjugate of upper branch weight vectors: _wuH[num_sources][fftlen2+1][chan_num]
+        self._wuH = None
+        # Hermitian transpose blocking matrices: _BmH[num_sources][fftlen2+1][chan_num][chan_num - Nc]
+        self._BmH = None
+        # the entire GSC 's weight, wq - B * wa : _wo[num_sources][fftlen2+1][chan_num]
+        self._woH = numpy.zeros((self._num_sources, self._fftlen2+1, self._chan_num), numpy.complex)
+
+        self._logfp = None
+
+    def reset(self):
+        self._array_source.reset()
+        self._isamp = 0
+        if self._logfp is not None:
+            self._logfp.flush()
+
+    def open_logfile(self, logfilename, fsubband_no_printed = set([50, 100])):
+        self._logfp = gzip.open(logfilename, 'w', 1)
+        self._subband_no_printed = subband_no_printed
+
+    def close_logfile(self):
+        if self._logfp is not None:
+            self._logfp.close()
+
+        self._logfp = None
+
+    def write_logfile(self,msg):
+        if self._logfp != 0:
+            self._logfp.write(msg)
+
+    def accum_observations(self, samplerate, target_labs = [(0.0, -1)], energy_threshold = 10, R = 1):
+        """
+        Accumulate observed subband components for adaptation. 
+        Adaptation can be done efficiently with VAD information, 
+        but it has no impact on speech enhancement or noise suppression performance. 
+
+        :param samplerate: sampling rate
+        :type samplerate: int
+        :param target_lab: start and end time of the target signal in sec.
+        :type  target_lab: list of float pairs
+        :param energy_threshold: enegery threshold: ignore the frame if the energy is less than this
+        :type  energy_threshold: float
+        :param R: downsampling factor, for example, R = 2**r where r is an exponential decimation factor
+        :type R: int (>=1)
+        :returns self._observations[frame][fftlen2+1][chan_num]: input subband snapshots
+        """
+
+        self._observations = []
+        frx = 0 
+        time_delta = self.shiftlen() / float(samplerate)
+        labx = 0
+        while True: # Process all the frames in one utterance (batch)
+            elapsed_time = frx * time_delta
+            try:
+                energy = self._array_source.update_snapshot_array(chan_no = 0) / self._fftlen
+                # Determine whether the current frame is the target signal or not.
+                if labx < len(target_labs):
+                    if elapsed_time >= target_labs[labx][0] and (elapsed_time <= target_labs[labx][1] or target_labs[labx][1] < 0):
+                        # This segment possibly belongs to the target signal
+                        if energy > energy_threshold and (frx % R) == 0:
+                            # Accumulate an observation vector
+                            X = [self._array_source.get_snapshot(m) for m in range(self._fftlen2+1)]
+                            self._observations.append(numpy.array(X))
+
+                    elif elapsed_time > target_labs[labx][1]:
+                        labx += 1
+
+            except StopIteration:
+                break
+            frx +=1
+
+        return self._observations
+
+    def alpha(self):
+        return self._alpha
+
+    def num_sources(self):
+        return self._num_sources
+
+    def Nc(self):
+        return self._Nc
+
+    def calc_obj_func(self, srcX, fbinX, wa_f):
+        pass
+
+    def gradient(self, srcX, fbinX, wa_f):
+        pass
+
+    def norm_active_weight_vectors(self, fbinX, wa_f):
+        return wa_f
+
+    def calc_upper_beamformer_weights(self):
+        """
+        Compute the upper beamformers' weights as well as the blocking matrices of the HOS beamformer
+        """
+        self._BmH = numpy.zeros((self._num_sources, self._fftlen2+1, self._chan_num - self._Nc, self._chan_num), numpy.complex)
+
+        wuH = []
+        for srcX in range(self._num_sources):
+            wuH_s = self._upper_beamformers[srcX].calc_entire_weights()
+            for m in range(self._fftlen2+1):
+                self._BmH[srcX][m] = numpy.transpose(calc_blocking_matrix(numpy.conjugate(wuH_s[m]), self._Nc))
+
+            wuH.append(wuH_s)
+
+        self._wuH = numpy.array(wuH)
+
+    def calc_gsc_output_f(self, fbinX, wa_f, Xft):
+        """
+        Calculate outputs of the GSC at a subband frequency bin
+
+        :param fbinX: the index of the subband frequency bin
+        :param wa_f[num_sources][chan_num - Nc]:
+        :param Xft[chan_num]: input vector
+        :returns: GSC beamformer output at a subband frequency bin
+        :note: this function supports half band shift only
+        """
+        assert self._wuH is not None, "calculate upper beamformer weights"
+        # Normalize the magnitude of the weight vector
+        wa_f = self.norm_active_weight_vectors(fbinX, wa_f)
+        Yt   = numpy.zeros(self._num_sources, numpy.complex)
+        for srcX in range(self._num_sources):
+            # Compute the weight vector of the HOS GSC beamformer
+            self._woH[srcX][fbinX] = self._wuH[srcX][fbinX] - numpy.dot(numpy.conjugate(wa_f[srcX]), self._BmH[srcX][fbinX])
+            Yt[srcX] = numpy.dot(self._woH[srcX][fbinX], Xft) 
+
+        return Yt
+
+    def __iter__(self):
+        """
+        Return the next spectral sample.
+        """
+        assert self._wuH is not None, "calculate upper beamformers\' weights"
+
+        while True:
+            self._array_source.update_snapshot_array()
+            output = numpy.zeros(self._fftlen, numpy.complex)
+
+            for m in range(self._fftlen2+1):
+                output[m] = numpy.dot(self._woH[self._srcX][m], self._array_source.get_snapshot(m))
+                if m > 0 and m < self._fftlen2:
+                    output[self._fftlen - m] = numpy.conjugate(output[m])
+
+            yield output
+            self._isamp += 1
+
+
+def unpack_weights(packed_weights, num_vecotrs, dim):
+    """
+    Unpack the weight vectors for each frequency bin. 
+    The float-type vector will be converted into the complex-type vector
+
+    :returns: complex matrix
+    """
+    weights = numpy.zeros((num_vecotrs, dim), numpy.complex)
+    idx = 0
+    for m in range(num_vecotrs):
+        weights[m] = numpy.array([packed_weights[2 * n + idx] + 1j * packed_weights[2 * n + 1 + idx] for n in range(dim)])
+        idx += 2 * dim
+
+    return weights
+
+
+def pack_weights(weights, num_vecotrs, dim):
+    """
+    Pack a set of vectors for each frequency bin.
+    The complex-type vector will be converted into the float-type vector
+
+    :returns: floating matrix packing the real and imaginary parts of complex values 
+    """
+    packed_weights = numpy.zeros(2 * num_vecotrs * dim, numpy.float)
+    idx = 0
+    for m in range(num_vecotrs):
+        for n in range(dim):
+            packed_weights[idx + 2 * n]     = weights[m][n].real
+            packed_weights[idx + 2 * n + 1] = weights[m][n].imag
+        idx += 2 * dim
+
+    return packed_weights
+
+
+# @memo fun_hos_bf() and dfun_hos_bf() are call back functions for pygsl.
+#       You can easily implement a new HOS beamformer by writing a new class derived from
+#       a class 'SubbandHOSBatchBeamformer' which have methods,
+#       norm_active_weight_vectors(wa),
+#       calc_hos_criterion(srcX, fbinX, wa) and 
+#       gradient(srcX, fbinX, wa).
+def fun_hos_bf(x, fbinX, hos_beamformer):
+    """
+    Calculate the objective function for the gradient algorithm
+
+    :param x[2 * nSrc * (chanN-NC)] : packed active weight vectors
+    :param fbinX: the frequency bin index you process 
+    :param hos_beamformer: SubbandHOSBatchBeamformer instance 
+    """
+
+    num_sources = hos_beamformer.num_sources()
+    dim         = hos_beamformer.chan_num() - hos_beamformer.Nc()
+
+    # Unpack current weights : x[2*nSource*(chanN - NC )] -> wa[nSource][chanN-NC]
+    wa = hos_beamformer.norm_active_weight_vectors(fbinX, unpack_weights(x, num_sources, dim))
+    # Calculate the objective function, the negative of the kurtosis
+    obj_val = 0.0
+    alpha = hos_beamformer.alpha()
+    for srcX in range(num_sources):
+        obj_val -= hos_beamformer.calc_obj_func(srcX, fbinX, wa)
+        # Add a regularization term
+        obj_val += alpha * numpy.inner(wa, numpy.conjugate(wa))[0].real
+
+    return obj_val.real
+
+
+def dfun_hos_bf(x, fbinX, hos_beamformer):
+    """
+    Calculate the derivatives of the objective function for the gradient algorithm
+
+    :param x[nSrc * 2 (chanN-NC)] : packed active weight vectors
+    :param fbinX: the frequency bin index you process 
+    :param hos_beamformer: SubbandHOSBatchBeamformer instance
+    """
+
+    num_sources = hos_beamformer.num_sources()
+    dim         = hos_beamformer.chan_num() - hos_beamformer.Nc()
+
+    # Unpack current weights : x[2*nSource*(chanN - NC )] -> wa[nSource][chanN-NC]
+    wa = hos_beamformer.norm_active_weight_vectors(fbinX, unpack_weights(x, num_sources, dim))
+    # Calculate a gradient
+    alpha = hos_beamformer.alpha()
+    deltaWa = [- hos_beamformer.gradient(srcX, fbinX, wa) + alpha * wa[srcX] for srcX in range(num_sources)]
+    # Pack the gradient
+    grad = pack_weights(deltaWa, num_sources, dim)
+
+    return grad
+
+
+class SubbandMEKBeamformer(SubbandHOSBatchBeamformer):
+    """
+    Implement a maximum empirical kurtosis beamformer 
+
+    usage:
+    1. construct an object, mkbf = SubbandMEKBeamformer(sos_beamformer)
+    2. calcualte sos beamformer's weights, so_beamformer.calc_beamformer_weights()
+    3. accumulate input vectors, mkbf.accum_observations()
+    4. estimate active weight vectors, mkbf.estimate_active_weights()
+    """
+    _OFFSET = -1E+6 # to add the objective value
+
+    def __init__(self, upper_beamformers, src_index = 0, Nc = 1, alpha = 0.01, beta = 3.0):
+        SubbandHOSBatchBeamformer.__init__(self, upper_beamformers, src_index = src_index, Nc = Nc, alpha = alpha)
+        self._beta = beta
+        self.reset_stats()
+
+    def reset_stats(self):
+        self._prevAvgY4  = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.float)
+        self._prevAvgY2  = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.float)
+        self._prevFrameN = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.int)
+
+    def store_stats(self, srcX, fbinX, wa_f):
+        frameN = len( self._observations )
+        self._prevFrameN[srcX][fbinX] += frameN
+
+        for frX in range(frameN):
+            Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
+            Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
+            Y4 = Y2 * Y2
+            self._prevAvgY2[srcX][fbinX] += (Y2 / self._prevFrameN[srcX][fbinX])
+            self._prevAvgY4[srcX][fbinX] += (Y4 / self._prevFrameN[srcX][fbinX])
+
+        #print('Store %d: %e %e %d' %(fbinX, self._prevAvgY4[srcX][fbinX], self._prevAvgY2[srcX][fbinX], self._prevFrameN[srcX][fbinX]))
+
+    def norm_active_weight_vectors(self, fbinX, wa):
+        return wa
+
+    def calc_obj_func(self, srcX, fbinX, wa_f):
+        """
+        Calculate empirical kurtosis :
+          \frac{1}{T} \sum_{t=0}^{T-1} Y^4 - 3 ( \frac{1}{T} \sum_{t=0}^{T-1} Y^2 )
+
+        :param srcX: the source index you process
+        :param fbinX : subband frequency bin index
+        :param wa_f[nSource][nChan-NC]:
+        :returns: Kurtosis of beamformers' output
+        """
+        frameN = len(self._observations)
+        totalFrameN = self._prevFrameN[srcX][fbinX] + frameN
+
+        exY4 = (self._prevAvgY4[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX]
+        exY2 = (self._prevAvgY2[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX]
+        for frX in range(frameN):
+            Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
+            Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
+            Y4 = Y2 * Y2
+            exY2 += (Y2 / totalFrameN)
+            exY4 += (Y4 / totalFrameN)
+
+        kurt = exY4 - self._beta * exY2 * exY2
+        return kurt + self._OFFSET
+
+    def gradient(self, srcX, fbinX, wa_f):
+        """
+        Calculate the derivative of empirical kurtosis w.r.t. wa_H
+
+        :param srcX: the source index that you process
+        :param fbinX: subband frequency bin index
+        :param wa_f[nSource][nChan-NC]:
+        :returns : gradient vector
+        """
+        frameN = len(self._observations)
+        totalFrameN = self._prevFrameN[srcX][fbinX] + frameN
+
+        exY2  = (self._prevAvgY2[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX] 
+        dexY2 = numpy.zeros(self._chan_num - self._Nc, numpy.complex)
+        dexY4 = numpy.zeros(self._chan_num - self._Nc, numpy.complex)
+
+        BH    = self._BmH[srcX][fbinX]
+        for frX in range(frameN):
+            Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
+            BHX = - numpy.dot(BH, self._observations[frX][fbinX]) # BH * X
+            Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
+            dexY4 += (2 * Y2 * BHX * numpy.conjugate(Y) / totalFrameN)
+            dexY2 += (BHX * numpy.conjugate(Y) / totalFrameN)
+            exY2  += (Y2 / totalFrameN)
+
+        return dexY4 - 2 * self._beta * exY2 * dexY2
+
+    def estimate_wa_f_pygsl(self, fbinX, startpoint, tolerance, solver, options = {}):
+        """
+        Estimate active weight vectors at a frequency bin with pygsl module;
+        see http://pygsl.sourceforge.net/api/pygsl.html#module-pygsl.minimize for details.
+
+        :param fbinX: the frequency bin index you process
+        :param startpoint: the initial active weight vector
+        :param tolerance: tolerance for the linear search
+        :param solver: solver type, 'CG' for Polak-Ribiere conjugate gradient algorithm, 'FR' for the Fletcher-Reeves conjugate gradient algorithm, 'BFGS' for the vector Broyden-Fletcher-Goldfarb-Shanno algorithm
+        :param maxiter: the maximum interation for the gradient algorithm
+        :param gtol: tolerance for the gradient algorithm
+        :param eps: step size for the gradient algorithm
+        """
+        maxiter  = options.get('maxiter', 40)
+        gtol     = options.get('gtol',    1.0E-02)
+        mindelta = options.get('mindelta',1E-06)
+        eps      = options.get('eps',     0.01)
+
+        ndim   = 2 * self._num_sources * (self._chan_num - self._Nc)
+        # initialize gsl functions
+        def gsl_fun_hos_bf(x, (fbinX, hos_beamformer)):
+            return fun_hos_bf(x, fbinX, hos_beamformer)
+
+        def gsl_dfun_hos_bf(x, (fbinX, hos_beamformer)):
+            return dfun_hos_bf(x, fbinX, hos_beamformer)
+
+        def gsl_fdfun_hos_bf(x, (fbinX, hos_beamformer)):
+            f  = gsl_fun_hos_bf(x, (fbinX, hos_beamformer))
+            df = gsl_dfun_hos_bf(x, (fbinX, hos_beamformer))
+            return f, df
+
+        fdf    = multiminimize.gsl_multimin_function_fdf(gsl_fun_hos_bf, gsl_dfun_hos_bf, gsl_fdfun_hos_bf, [fbinX, self], ndim)
+        if solver == 'CG':
+            solver = multiminimize.conjugate_pr(fdf, ndim)
+        elif solver == 'FR':
+            solver = multiminimize.conjugate_fr(fdf, ndim)
+        elif solver == 'BFGS':
+            solver = pygsl.multiminimize.vector_bfgs(fdf, ndim)
+        elif solver == 'BFGS2':
+            solver = pygsl.multiminimize.vector_bfgs2(fdf, ndim)
+        else:
+            raise TypeError('Invalid solver type %s' %solver)
+
+        solver.set(startpoint, eps, tolerance)
+        packed_wa = startpoint
+        preMi = 10000.0
+        for itera in range(maxiter):
+            try: 
+                status1   = solver.iterate()
+                packed_wa = solver.getx()
+                mi        = solver.getf()
+                status2   = multiminimize.test_gradient(solver.gradient(), gtol)
+            except errors.gsl_NoProgressError, msg:
+                print("I=%d: No progress error %e" %(itera, mi))
+                print(msg)
+                break
+            except:
+                print("GSL.solver.iterate(): Unexpected error")
+                break
+
+            if self._logfp is not None and fbinX in self._subband_no_printed:
+                self._logfp.write('%d: %d %e\n' %(fbinX, itera, mi))
+
+            diff = abs(preMi - mi)
+            if status2 == 0:
+                print('I=%d: Converged. %d %e' %(itera, fbinX, mi))
+                if self._logfp is not None and fbinX in self._subband_no_printed:
+                    self._logfp.write('Converged1 %e\n' %(diff))
+
+                break
+            elif diff < mindelta:
+                print('I=%d: Converged. %d %e (%e)' %(itera, fbinX, mi, diff))
+                if self._logfp is not None and fbinX in self._subband_no_printed:
+                    self._logfp.write('Converged2 %e\n' %(diff))
+
+                break
+
+            preMi = mi
+
+        return packed_wa
+
+    def estimate_wa_f_scipy(self, fbinX, startpoint, tolerance, solver = 'Nelder-Mead', options={'maxiter':300}):
+        """
+        Estimate active weight vectors at a frequency bin with scipy.optimize;
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+
+        :param fbinX: the frequency bin index you process
+        :param startpoint: the initial active weight vector
+        :param maxiter: the maximum interation for the gradient algorithm
+        :param tolerance: tolerance for the linear search
+        :param solver: types of a slover for finding the minimum of a function
+        :param options: option for the solver; see the scipy.optimize.minimize.html page above
+        """
+        def store_data(x):
+            if self._logfp is not None and fbinX in self._subband_no_printed:
+                kurt = fun_hos_bf(x, fbinX, self)
+                self._logfp.write('f=%d: %e\n' %(fbinX, kurt))
+
+        opt_result = scipy.optimize.minimize(fun_hos_bf, startpoint, args=(fbinX, self), method = solver, jac=dfun_hos_bf, callback=store_data, options=options)
+        print('{} success={} status={}'.format(opt_result.message, opt_result.success, opt_result.status))
+
+        return opt_result.x
+
+    def finalize_wa_f(self, fbinX, packed_wa):
+        """
+        Finalization process for active weight and whole beamformer weight vector
+        """
+        wa_f = unpack_weights(packed_wa, self._num_sources, self._chan_num - self._Nc)
+        wa_f = self.norm_active_weight_vectors(fbinX, wa_f)
+        for srcX in range(self._num_sources):
+            self.store_stats(srcX, fbinX, wa_f)
+            for m in range(self._fftlen2+1):
+                self._woH[srcX][m] = self._wuH[srcX][m] - numpy.dot(numpy.conjugate(wa_f[srcX]), self._BmH[srcX][m])
+
+        return pack_weights(wa_f, self._num_sources, self._chan_num - self._Nc)
+
+    def estimate_active_weights(self, module = 'pygsl', solver = 'CG', options = {'maxiter':40, 'tolerance':1.0E-03, 'gtol':1.0E-02, 'mindelta':1.0E-05, 'eps':0.01}):
+        """
+        Estimate the active weight vectors for all the frequency bins
+
+        :returns: list of floating active weight vecotrs packing the real and imaginary parts of complex values
+        """
+        tolerance = options.pop('tolerance')
+        # compute the weights of the upper beamformers
+        self.calc_upper_beamformer_weights()
+        # compute the active weight vectors
+        packed_weights = []
+        for m in range(self._fftlen2+1):
+            startpoint = numpy.zeros(2 * self._num_sources * (self._chan_num - self._Nc), numpy.float)
+            if module == 'scipy':
+                assert SCIPY_IMPORTED == True, 'Install scipy'
+                packed_wa = self.estimate_wa_f_scipy(m, startpoint, tolerance, solver, options = options)
+            elif module == 'pygsl':
+                assert PYGSL_IMPORTED == True, 'Install pygsl'
+                packed_wa = self.estimate_wa_f_pygsl(m, startpoint, tolerance, solver, options = options)
+            else:
+                raise ImportError('Install scipy or pygsl')
+
+            pack_weights = self.finalize_wa_f(m, packed_wa)
+            packed_weights.append(packed_wa)
+
+        return packed_weights
+
+
+class SubbandNMEKBeamformer(SubbandMEKBeamformer):
+    """
+    Implement a normalized maximum empirical kurtosis beamformer where
+    the entire weight is normalized at each step in the steepest gradient algorithm.
+
+    usage:
+    1. construct an object, mkbf = SubbandNMEKBeamformer(sos_beamformer)
+    2. calcualte sos beamformer's weights, so_beamformer.calc_beamformer_weights()
+    3. accumulate input vectors, mkbf.accum_observations()
+    4. estimate active weight vectors, mkbf.estimate_active_weights()
+    """
+    def __init__(self, upper_beamformers, src_index = 0, Nc = 1, alpha = 0.01, beta = 3.0, gamma = -1.0):
+        SubbandMEKBeamformer.__init__(self, upper_beamformers, src_index, Nc, alpha, beta)
+        self._gamma = gamma
+
+    def normalize_weight(self, srcX, fbinX, wa):
+        nrm_wa2 = numpy.inner(wa, numpy.conjugate(wa))
+        nrm_wa  = numpy.sqrt(nrm_wa2.real)
+        if self._gamma < 0:
+            gamma = numpy.sqrt(numpy.inner(self._wuH[srcX][fbinX], numpy.conjugate(self._wuH[srcX][fbinX])))
+        else:
+            gamma = self._gamma
+        if nrm_wa > abs(gamma) : # >= 1.0:
+            wa  =  abs(gamma) * wa / nrm_wa
+
+        return wa
+
+    def norm_active_weight_vectors(self, fbinX, wa_f):
+        wa = [self.normalize_weight(srcX, fbinX, wa_f[srcX]) for srcX in range(self._num_sources)]
+
+        return wa
