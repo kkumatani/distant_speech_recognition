@@ -23,7 +23,7 @@ from btk20.postfilter import *
 
 SSPEED = 343740.0
 
-def check_label_data_format(ap_conf):
+def check_label_data_format(ap_conf, beamformer_key = 'beamformer'):
     """
     Check the JSON file format for the following items:
     - Position information,
@@ -31,7 +31,7 @@ def check_label_data_format(ap_conf):
     - Time-frequency mask file
     """
 
-    if ap_conf['beamformer'] == 'smimvdr':
+    if ap_conf[beamformer_key] == 'smimvdr':
         from test_online_beamforming import check_position_data_format
         check_position_data_format(ap_conf)
     else:
@@ -117,8 +117,6 @@ def sos_batch_beamforming(h_fb, g_fb, D, M, m, r, input_audio_paths, out_path, a
     :returns: Tuple of total beamformer's output power and the number of processed frames
     """
 
-    channels_num = len(input_audio_paths)
-
     sample_feats = []
     afbs = []
     for c, input_audio_path in enumerate(input_audio_paths):
@@ -189,8 +187,6 @@ def sos_batch_beamforming(h_fb, g_fb, D, M, m, r, input_audio_paths, out_path, a
             # Direction of the target souce
             posx = 0
             target_position_t = ap_conf['target']['positions'][posx][1]
-            print ap_conf['microphone_positions']
-            print target_position_t
             delays_t = calc_delays(ap_conf['array_type'], ap_conf['microphone_positions'], target_position_t, sspeed = SSPEED)
             # Compute a (spatial) covariance matrix
             beamformer.accu_stats_from_label(samplerate, target_labs = ap_conf['target']['vad_label'], energy_threshold = energy_threshold)

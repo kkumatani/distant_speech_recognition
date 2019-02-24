@@ -61,7 +61,7 @@ def tdoa_estimation(input_audio_paths, ap_conf, samplerate, tdoa_path, trj_pos_p
                                     mpos = numpy.array(ap_conf['microphone_positions']),
                                     energy_threshold = tdoae_conf.get('energy_threshold', 64),
                                     minimum_pairs = tdoae_conf.get('minimum_pairs', 2),
-                                    threshold     = tdoae_conf.get('cc_threshold ', 0.1),
+                                    threshold     = tdoae_conf.get('cc_threshold', 0.244),
                                     sspeed = SSPEED)
 
     time_delta = float(D) / samplerate

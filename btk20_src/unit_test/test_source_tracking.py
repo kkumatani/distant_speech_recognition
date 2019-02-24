@@ -73,7 +73,7 @@ def ekf_source_tracking(input_audio_paths, ap_conf, samplerate, tdoa_path, trj_p
                                     mpos = numpy.array(ap_conf['microphone_positions']),
                                     energy_threshold = tracker_conf.get('energy_threshold', 100),
                                     minimum_pairs = tracker_conf.get('minimum_pairs', 3),
-                                    threshold     = tracker_conf.get('cc_threshold ', 0.11),
+                                    threshold     = tracker_conf.get('cc_threshold', 0.11),
                                     sspeed = SSPEED)
 
     if 'initial_estimate' in tracker_conf:
