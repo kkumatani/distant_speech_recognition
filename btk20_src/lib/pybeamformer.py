@@ -29,6 +29,15 @@ try:
 except ImportError:
     PYGSL_IMPORTED = False
 
+try:
+    import btk20.pyggd
+    from btk20.pyggd import *
+    import btk20.pycggd
+    from btk20.pycggd import *
+    PYGGD_IMPORTED = True
+except ImportError:
+    PYGGD_IMPORTED = False
+
 def calc_la_delays(mpos, azimuth, sspeed = 343740.0, ref_micx = None):
     """
     Calculate the delays of the linear array to focus the beam on (azimuth) under the far-field assumption
@@ -139,7 +148,7 @@ def calc_delays(array_type, mpos, position, sspeed = 343740.0, ref_micx = None):
     elif array_type == 'planar':
         return calc_pa_delays(mpos, position[0], position[1], sspeed = sspeed, ref_micx = ref_micx)
     elif array_type == 'circular':
-        return calc_ca_delays(mpos, position[0], position[1], sspeed = sspeed, ref_micx = ref_micx)
+        return calc_ca_delays(mpos, position[0], position[1], sspeed = sspeed)
 
     return calc_nf_delays(mpos, position[0], position[1], position[2], sspeed = sspeed, ref_micx = ref_micx)
 
@@ -1425,6 +1434,12 @@ class SubbandHOSBatchBeamformer(SubbandBeamformer):
     def Nc(self):
         return self._Nc
 
+    def reset_stats(self):
+        pass
+
+    def store_stats(self):
+        pass
+
     def calc_obj_func(self, srcX, fbinX, wa_f):
         pass
 
@@ -1542,15 +1557,14 @@ def fun_hos_bf(x, fbinX, hos_beamformer):
     num_sources = hos_beamformer.num_sources()
     dim         = hos_beamformer.chan_num() - hos_beamformer.Nc()
 
-    # Unpack current weights : x[2*nSource*(chanN - NC )] -> wa[nSource][chanN-NC]
+    # Unpack current weights : x[2*num_sources*(chanN - NC )] -> wa[num_sources][chanN-NC]
     wa = hos_beamformer.norm_active_weight_vectors(fbinX, unpack_weights(x, num_sources, dim))
     # Calculate the objective function, the negative of the kurtosis
-    obj_val = 0.0
+    obj_val = - hos_beamformer.calc_obj_func(fbinX, wa)
+    # Add a regularization term
     alpha = hos_beamformer.alpha()
     for srcX in range(num_sources):
-        obj_val -= hos_beamformer.calc_obj_func(srcX, fbinX, wa)
-        # Add a regularization term
-        obj_val += alpha * numpy.inner(wa, numpy.conjugate(wa))[0].real
+        obj_val += alpha * numpy.inner(wa[srcX], numpy.conjugate(wa[srcX])).real
 
     return obj_val.real
 
@@ -1567,11 +1581,12 @@ def dfun_hos_bf(x, fbinX, hos_beamformer):
     num_sources = hos_beamformer.num_sources()
     dim         = hos_beamformer.chan_num() - hos_beamformer.Nc()
 
-    # Unpack current weights : x[2*nSource*(chanN - NC )] -> wa[nSource][chanN-NC]
+    # Unpack current weights : x[2*num_sources*(chanN - NC )] -> wa[num_sources][chanN-NC]
     wa = hos_beamformer.norm_active_weight_vectors(fbinX, unpack_weights(x, num_sources, dim))
     # Calculate a gradient
     alpha = hos_beamformer.alpha()
-    deltaWa = [- hos_beamformer.gradient(srcX, fbinX, wa) + alpha * wa[srcX] for srcX in range(num_sources)]
+    gradients = - hos_beamformer.gradient(fbinX, wa)
+    deltaWa = [gradients[srcX] + alpha * wa[srcX] for srcX in range(num_sources)]
     # Pack the gradient
     grad = pack_weights(deltaWa, num_sources, dim)
 
@@ -1596,77 +1611,76 @@ class SubbandMEKBeamformer(SubbandHOSBatchBeamformer):
         self.reset_stats()
 
     def reset_stats(self):
-        self._prevAvgY4  = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.float)
-        self._prevAvgY2  = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.float)
-        self._prevFrameN = numpy.zeros((self._num_sources, self._fftlen/2+1), numpy.int)
+        self._prevAvgY4  = numpy.zeros((self._fftlen/2+1, self._num_sources), numpy.float)
+        self._prevAvgY2  = numpy.zeros((self._fftlen/2+1, self._num_sources), numpy.float)
+        self._prevFrameN = numpy.zeros((self._fftlen/2+1, self._num_sources), numpy.int)
 
     def store_stats(self, srcX, fbinX, wa_f):
-        frameN = len( self._observations )
-        self._prevFrameN[srcX][fbinX] += frameN
+        frameN = len(self._observations)
+        self._prevFrameN[fbinX][srcX] += frameN
 
         for frX in range(frameN):
             Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
             Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
             Y4 = Y2 * Y2
-            self._prevAvgY2[srcX][fbinX] += (Y2 / self._prevFrameN[srcX][fbinX])
-            self._prevAvgY4[srcX][fbinX] += (Y4 / self._prevFrameN[srcX][fbinX])
-
-        #print('Store %d: %e %e %d' %(fbinX, self._prevAvgY4[srcX][fbinX], self._prevAvgY2[srcX][fbinX], self._prevFrameN[srcX][fbinX]))
+            self._prevAvgY2[fbinX][srcX] += (Y2 / self._prevFrameN[fbinX][srcX])
+            self._prevAvgY4[fbinX][srcX] += (Y4 / self._prevFrameN[fbinX][srcX])
 
     def norm_active_weight_vectors(self, fbinX, wa):
         return wa
 
-    def calc_obj_func(self, srcX, fbinX, wa_f):
+    def calc_obj_func(self, fbinX, wa_f):
         """
         Calculate empirical kurtosis :
           \frac{1}{T} \sum_{t=0}^{T-1} Y^4 - 3 ( \frac{1}{T} \sum_{t=0}^{T-1} Y^2 )
 
         :param srcX: the source index you process
         :param fbinX : subband frequency bin index
-        :param wa_f[nSource][nChan-NC]:
+        :param wa_f[num_sources][nChan-NC]:
         :returns: Kurtosis of beamformers' output
         """
         frameN = len(self._observations)
-        totalFrameN = self._prevFrameN[srcX][fbinX] + frameN
-
-        exY4 = (self._prevAvgY4[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX]
-        exY2 = (self._prevAvgY2[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX]
+        sumY2 = numpy.zeros(self._num_sources, numpy.float)
+        sumY4 = numpy.zeros(self._num_sources, numpy.float)
         for frX in range(frameN):
             Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
-            Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
-            Y4 = Y2 * Y2
-            exY2 += (Y2 / totalFrameN)
-            exY4 += (Y4 / totalFrameN)
+            Y2 = numpy.real(numpy.multiply(Y, numpy.conjugate(Y)))
+            sumY2 += Y2
+            sumY4 += numpy.multiply(Y2, Y2)
 
+        totalFrameN = self._prevFrameN[fbinX] + frameN
+        exY4 = numpy.sum(numpy.divide(self._prevAvgY4[fbinX] * self._prevFrameN[fbinX] + sumY4, totalFrameN))
+        exY2 = numpy.sum(numpy.divide(self._prevAvgY2[fbinX] * self._prevFrameN[fbinX] + sumY2, totalFrameN))
         kurt = exY4 - self._beta * exY2 * exY2
+
         return kurt + self._OFFSET
 
-    def gradient(self, srcX, fbinX, wa_f):
+    def gradient(self, fbinX, wa_f):
         """
         Calculate the derivative of empirical kurtosis w.r.t. wa_H
 
         :param srcX: the source index that you process
         :param fbinX: subband frequency bin index
-        :param wa_f[nSource][nChan-NC]:
+        :param wa_f[num_sources][nChan-NC]:
         :returns : gradient vector
         """
         frameN = len(self._observations)
-        totalFrameN = self._prevFrameN[srcX][fbinX] + frameN
+        totalFrameNs = self._prevFrameN[fbinX] + frameN
 
-        exY2  = (self._prevAvgY2[srcX][fbinX] / totalFrameN) * self._prevFrameN[srcX][fbinX] 
-        dexY2 = numpy.zeros(self._chan_num - self._Nc, numpy.complex)
-        dexY4 = numpy.zeros(self._chan_num - self._Nc, numpy.complex)
-
-        BH    = self._BmH[srcX][fbinX]
+        dexY4 = numpy.zeros((self._num_sources, self._chan_num - self._Nc), numpy.complex)
+        dexY2 = numpy.zeros((self._num_sources, self._chan_num - self._Nc), numpy.complex)
+        exY2  = numpy.zeros(self._num_sources, numpy.complex)
         for frX in range(frameN):
             Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
-            BHX = - numpy.dot(BH, self._observations[frX][fbinX]) # BH * X
-            Y2 = numpy.inner(Y, numpy.conjugate(Y)).real / self._num_sources
-            dexY4 += (2 * Y2 * BHX * numpy.conjugate(Y) / totalFrameN)
-            dexY2 += (BHX * numpy.conjugate(Y) / totalFrameN)
-            exY2  += (Y2 / totalFrameN)
+            Y2 = numpy.real(numpy.multiply(Y, numpy.conjugate(Y)))
+            for srcX in range(self._num_sources):
+                BH    = self._BmH[srcX][fbinX]
+                BHX   = - numpy.dot(BH, self._observations[frX][fbinX]) # BH * X
+                dexY4[srcX][:] += (2 * Y2[srcX] * BHX * numpy.conjugate(Y[srcX]) / totalFrameNs[srcX])
+                dexY2[srcX][:] += (BHX * numpy.conjugate(Y[srcX]) / totalFrameNs[srcX])
+                exY2[srcX]  += (Y2[srcX] / totalFrameNs[srcX])
 
-        return dexY4 - 2 * self._beta * exY2 * dexY2
+        return numpy.array([dexY4[srcX] - 2 * self._beta * exY2[srcX] * dexY2[srcX] for srcX in range(self._num_sources)])
 
     def estimate_wa_f_pygsl(self, fbinX, startpoint, tolerance, solver, options = {}):
         """
@@ -1728,6 +1742,7 @@ class SubbandMEKBeamformer(SubbandHOSBatchBeamformer):
                 print("GSL.solver.iterate(): Unexpected error")
                 break
 
+            print('I=%d: f=%e' %(itera, mi))
             if self._logfp is not None and fbinX in self._subband_no_printed:
                 self._logfp.write('%d: %d %e\n' %(fbinX, itera, mi))
 
@@ -1828,6 +1843,144 @@ class SubbandNMEKBeamformer(SubbandMEKBeamformer):
         self._gamma = gamma
 
     def normalize_weight(self, srcX, fbinX, wa):
+        nrm_wa2 = numpy.inner(wa, numpy.conjugate(wa))
+        nrm_wa  = numpy.sqrt(nrm_wa2.real)
+        if self._gamma < 0:
+            gamma = numpy.sqrt(numpy.inner(self._wuH[srcX][fbinX], numpy.conjugate(self._wuH[srcX][fbinX])))
+        else:
+            gamma = self._gamma
+        if nrm_wa > abs(gamma) : # >= 1.0:
+            wa  =  abs(gamma) * wa / nrm_wa
+
+        return wa
+
+    def norm_active_weight_vectors(self, fbinX, wa_f):
+        wa = [self.normalize_weight(srcX, fbinX, wa_f[srcX]) for srcX in range(self._num_sources)]
+
+        return wa
+
+class SubbandMNBeamformerCGGD(SubbandMEKBeamformer):
+    """
+    Maximum negentropy beamformer with the GG pdf assumption
+
+    usage:
+    1. construct an object, mnBf = MNSubbandBeamformerGGD( spectralSources, ggdL )
+    2. calculate the fixed weights, mnBf.calcFixedWeights( sampleRate, delay )
+    3. accumulate input vectors, mnBf.accumObservations( sFrame, eFrame, R )
+    4. calculate the covariance matricies of the inputs, mnBf.calcCov()
+    5. estimate active weight vectors, mnBf.estimateActiveWeights( fbinX, startpoint )
+    """
+    def __init__(self, upper_beamformers, ggds, src_index = 0, Nc = 1, alpha = 1.0E-02, beta = 0.5):
+        SubbandMEKBeamformer.__init__(self, upper_beamformers, src_index = src_index, Nc = Nc, alpha = alpha, beta = beta)
+        self.reset_stats()
+        self._ggds = ggds
+
+    def reset_stats(self):
+        # beamformer's outputs
+        self._outputs = None # numpy.zeros((frameN, num_sources), numpy.complex)
+        # the covariance matrix of the outputs
+        self._SigmaY  = None # numpy.zeros((num_sources,num_sources), numpy.complex)
+        # SigmaYf[n] = \frac{1}{T} sum_{t=0}^{T-1} |Ynt|^2f
+        self._SigmaYf = None 
+        # scaling_par[n] = ( Gamma(2/f) * Gamma(1/f) ) ( \frac{f}{T} sum_{t=0}^{T-1} |Ynt|^2f )^(1/f)
+        self._scaling_par = numpy.zeros(self._num_sources, numpy.complex)
+
+    def store_stats(self):
+        pass
+
+    def calc_output_covar_f(self, fbinX):
+        """
+        Calculate the covariance matrix of beamformer's outputs and
+        the average values of the p-th power of outputs
+        
+        :param fbinX : the index of the frequency bin
+        """
+        num_sources = self._num_sources
+        frameN      = len(self._observations)
+        # beamformer's outputs
+        self._outputs = numpy.zeros((frameN, num_sources), numpy.complex)
+        # Sigma_Y = Y * Y^H
+        self._SigmaY  = numpy.zeros((num_sources, num_sources), numpy.complex)
+        # Sigma_Yp[n] = (1/T) sum_{t=0}^{T-1} |Ynt|^2f
+        self._SigmaYf = numpy.zeros(num_sources, numpy.float)
+
+        f  = self._ggds[fbinX].getShapePar()
+        for frX in range(frameN):
+            Y = self.calc_gsc_output_f(fbinX, wa_f, self._observations[frX][fbinX])
+            # zero mean assumption
+            SigmaY = numpy.outer(Y, numpy.conjugate(Y))
+            self._SigmaY += SigmaY
+            for srcX in range(num_sources):
+                self._SigmaYf[srcX] += numpy.power( SigmaY[srcX][srcX].real, f )
+
+        self._SigmaY  = self._SigmaY / frameN
+        self._SigmaYf = self._SigmaYf / frameN
+        self._scaling_par = numpy.power(f * self._SigmaYf, (1/f)) / self._ggds[fbinX].getB()        
+
+    def H_gaussian(self, det_SigmaY):
+        """ 
+        Calculate the entropy of Gaussian r.v.s.
+        """
+        return numpy.log(det_SigmaY) + (1 + numpy.log(numpy.pi))
+
+    def H_ggaussian(self, srcX, fbinX):
+        # @ brief calculate the entropy with the genealized Gaussian pdf
+        entropy = self._ggds[fbinX].entropy(self._scaling_par[srcX])
+        return entropy
+
+    def calc_obj_func(self, srcX, fbinX, wa_f):
+        # @brief calculate the negentropy
+        # @param srcX: the source index you process
+        # @param fbinX: the frequency bin index you process
+        JY = self.H_gaussian(self._SigmaY[srcX][srcX]) - self._beta * self.H_ggaussian(srcX, fbinX)
+
+        return JY
+
+    def gradient(self, srcX, fbinX, wa_f):
+        # @brief calculate the derivative of the negentropy
+        # @param srcX: the source index you process
+        # @param fbinX: the frequency bin index you process
+
+        num_sources = self._num_sources
+        frameN      = len(self._observations)
+        f           = self._ggds[fbinX].getShapePar()
+        sigma2      = self._SigmaY[srcX][srcX]
+        sigmaYf     = self._SigmaYf[srcX]
+        BH          = self._BH[srcX][fbinX]
+        dJ          = 0
+
+        frame_count = 0
+        for frX in range(frameN):
+            Y       = self._outputs[frX][srcX]
+            absY    = abs(Y)
+            if absY > 0.0:
+                BH_X_Ya = numpy.dot(BH, self._observations[frX][fbinX]) * numpy.conjugate(Y)
+                val = numpy.power(absY, 2 * f - 2) / sigmaYf
+                dJ += (- (1/sigma2) + self._beta * val) * BH_X_Ya
+                frame_count += 1
+
+        return dJ  / frame_count
+
+
+class SubbandNMNBeamformerCGGD(SubbandMNBeamformerCGGD):
+    """
+    Implement normalized maximum negentropy beamformer with the GG pdf assumption
+
+    usage:
+    1. construct an object, mnBf = MNSubbandBeamformerGGD( spectralSources, ggdL )
+    2. accumulate input vectors, mnBf.accumObservations( sFrame, eFrame, R )
+    3. calculate the covariance matricies of the inputs, mnBf.calcCov()
+    4. estimate active weight vectors, mnBf.estimateActiveWeights( fbinX, startpoint )
+    """ 
+    def __init__(self, upper_beamformers, ggds, src_index = 0, Nc = 1, alpha = 1.0E-02, beta = 1.0, gamma = -1.0):
+        """
+        """
+        SubbandMNBeamformerCGGD.__init__(upper_beamformers, ggds, src_index = src_index, Nc = Nc, alpha = alpha, beta = beta)
+
+        self._gamma = gamma
+
+    def normalize_weight(self, srcX, fbinX, wa):
+
         nrm_wa2 = numpy.inner(wa, numpy.conjugate(wa))
         nrm_wa  = numpy.sqrt(nrm_wa2.real)
         if self._gamma < 0:
