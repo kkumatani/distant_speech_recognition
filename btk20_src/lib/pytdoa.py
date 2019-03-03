@@ -543,21 +543,49 @@ class FarfieldCircularArrayTDOAFeatureVector(TDOAFeatureVector):
                 A[i] = 1
 
         A2 = A * A
+
+        # check if there is a mic pair on a plane not parallel to the xy-plane
+        mic_pair_exists_on_non_parallel_xy_plane = numpy.count_nonzero(P[:,2])
+
         # compute polar angle (theta)
         cos_theta2 = 1 - A2[0] - A2[1]
-        if cos_theta2 >= 0:
-            theta = numpy.arccos((numpy.sqrt(cos_theta2) + A[2]) / 2.0)
+        if mic_pair_exists_on_non_parallel_xy_plane == 0: # every mic pair is on a plane parallel to the xy-plane
+            if cos_theta2 < 0: # There is no valid solution
+                return numpy.array([-1e10, -1e10])
+            theta = numpy.arccos(numpy.sqrt(cos_theta2))
         else:
-            theta = A[2]
+            if (cos_theta2 + A[2]) >= 0:
+                theta = numpy.arccos(numpy.sqrt(cos_theta2 + A[2]) / 2.0)
+            else:
+                theta = numpy.arccos(A[2])
 
         # compute azimuth (phi)
-        cos_phi1 = numpy.sqrt(A2[0] / (A2[0] + A2[1]))
-        if A2[2] != 1.0:
-            phi = numpy.arccos(cos_phi1)
+        if mic_pair_exists_on_non_parallel_xy_plane == 0:
+            if (A2[0] + A2[1]) == 0: # There is no valid solution
+                return numpy.array([-1e10, -1e10])
+            cos_phi2 =  A2[0] / (A2[0] + A2[1])
+            if cos_phi2 < 0: # There is no valid solution
+                return numpy.array([-1e10, -1e10])
+            phi = numpy.arccos(numpy.sqrt(cos_phi2))
         else:
-            cos_phi2 = numpy.sqrt(- A2[0] / (A2[2] - 1))
-            cos_phi3 = numpy.sqrt((A2[1] + A2[2] - 1) / (A2[2] - 1))
-            phi = numpy.arccos((cos_phi1 + cos_phi2 + cos_phi3) / 3.0)
+            sum_cos_phi = 0.0
+            num_valid_solutions = 0
+            cos_phi2 =  A2[0] / (A2[0] + A2[1])
+            if (A2[0] + A2[1]) != 0 and cos_phi2 >= 0:
+                sum_cos_phi += numpy.sqrt(cos_phi2)
+                num_valid_solutions += 1
+            if A2[2] != 1:
+                cos_phi2 = - A2[0] / (A2[2] - 1)
+                if cos_phi2 >= 0:
+                    sum_cos_phi += numpy.sqrt(cos_phi2)
+                    num_valid_solutions += 1
+                cos_phi2 = (A2[1] + A2[2] - 1) / (A2[2] - 1)
+                if cos_phi2 >= 0:
+                    sum_cos_phi += numpy.sqrt(cos_phi2)
+                    num_valid_solutions += 1
+            if num_valid_solutions == 0: # There is no valid solution
+                return numpy.array([-1e10, -1e10])
+            phi = numpy.arccos(sum_cos_phi / num_valid_solutions)
 
         return numpy.array([phi, theta])
 
