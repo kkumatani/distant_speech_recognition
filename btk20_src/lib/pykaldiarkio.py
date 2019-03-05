@@ -28,11 +28,11 @@ Basic classes to read/write a binary Kaldi ark file
 
 import struct, numpy
 
-BFM_SYM = 'BFM '
-BIV_SYM = 'B'
-FEAT_BYTE_SIZE = '\x04'
-NULLC = '\0'
-WAV_SYM = 'RIFF'
+BFM_SYM = b'BFM '
+BIV_SYM = b'B'
+FEAT_BYTE_SIZE = b'\x04'
+NULLC = b'\0'
+WAV_SYM = b'RIFF'
 
 class KaldiArkReader:
     """
@@ -116,14 +116,20 @@ class KaldiFeatArkReader(KaldiArkReader):
         KaldiArkReader.__init__(self, store_image)
 
     def __iter__(self):
-        uttid = ''
+        """
+        Return a tuple of an utterance ID and feature matrix 
+        where each row vector correpsonds to a feature vector per frame
+
+        :returns: (string, numpy.matrix)
+        """
+        uttid = b''
 
         while True:
             arkdata = self.arkfp.read(1)
-            if arkdata == '':
+            if arkdata == b'':
                 raise StopIteration('End of feat ark file')
             c = struct.unpack('<s', arkdata)[0]
-            if c == ' ':
+            if c == b' ':
                 arkdata = self.arkfp.read(1) # skip '\0'
                 arkdata = self.arkfp.read(4) # read the end symbol 'BFM '
                 endSym = struct.unpack('<4s', arkdata)[0]
@@ -139,13 +145,14 @@ class KaldiFeatArkReader(KaldiArkReader):
                 # read the coefficients
                 arkdata = self.arkfp.read(coeffN * 4)
                 feMat = numpy.reshape(struct.unpack('<%df' %(coeffN), arkdata), (frameN,featD))
+                uttid = uttid.decode()
                 if self.arkdata is not None:
                     self.accumulate(uttid, feMat)
                 uttid2data = {uttid:feMat}
-                uttid = ''
+                uttid = b''
                 yield uttid2data
             else:
-                uttid += str(c)
+                uttid += c
 
 
 class KaldiIntVectorArkReader(KaldiArkReader):
@@ -156,14 +163,19 @@ class KaldiIntVectorArkReader(KaldiArkReader):
         KaldiArkReader.__init__(self, store_image)
 
     def __iter__(self):
-        uttid = ''
+        """
+        Return a tuple of an utterance ID and vector
+
+        :returns: (string, numpy.vector)
+        """
+        uttid = b''
 
         while True:
             arkdata = self.arkfp.read(1)
-            if arkdata == '':
+            if arkdata == b'':
                 break
             c = struct.unpack('<s', arkdata)[0]
-            if c == ' ':
+            if c == b' ':
                 arkdata = self.arkfp.read(1) # skip '\0'
                 arkdata = self.arkfp.read(1) # read the end symbol 'B'
                 endSym = struct.unpack('<s', arkdata)[0]
@@ -179,13 +191,14 @@ class KaldiIntVectorArkReader(KaldiArkReader):
                     arkdata = self.arkfp.read(4)
                     vals.append(struct.unpack('<i', arkdata)[0])
                 intVec = numpy.array(vals)
+                uttid = uttid.decode()
                 if self.arkdata is not None:
                     self.accumulate(uttid, intVec)
                 uttid2data = {uttid:intVec}
-                uttid = ''
+                uttid = b''
                 yield uttid2data
             else:
-                uttid += str(c)
+                uttid += c
 
 
 class KaldiWavArkReader(KaldiArkReader):
@@ -208,15 +221,20 @@ class KaldiWavArkReader(KaldiArkReader):
         return self.num_channels
 
     def __iter__(self):
-        uttid = ''
+        """
+        Return a tuple of an utterance ID and audio samples as a 16-bit integer vector
+
+        :returns: (string, numpy.int16 vector)
+        """
+        uttid = b''
 
         while True:
             arkdata = self.arkfp.read(1)
-            if arkdata == '':
+            if arkdata == b'':
                 raise StopIteration('End of wav ark file')
 
             c = struct.unpack('<s', arkdata)[0]
-            if c == ' ':
+            if c == b' ':
                 # read the 44 Byte header block of the RIFF file
                 riff_header = self.arkfp.read(44) # skip '\0'
                 endSym     = struct.unpack('<4s',riff_header[0:4])[0]
@@ -235,13 +253,14 @@ class KaldiWavArkReader(KaldiArkReader):
                 uttInt  = [struct.unpack('<h', uttBinary[i:i+2]) for i in numpy.arange(0,len(uttBinary), 2)]
                 samples = numpy.array(numpy.int16(numpy.resize(uttInt, (len(uttInt),))))
                 self.riff_header = riff_header
+                uttid = uttid.decode()
                 if self.arkdata is not None:
                     self.accumulate(uttid, samples)
                 uttid2data = {uttid:samples}
-                uttid = ''
+                uttid = b''
                 yield uttid2data
             else:
-                uttid += str(c)
+                uttid += c
 
 
 class KaldiArkWriter:
@@ -277,28 +296,28 @@ class KaldiFeatArkWriter(KaldiArkWriter):
 
     def write(self, uttid2feats, uttids=None):
         if uttids is None:
-            uttids = uttid2feats.keys()
+            uttids = list(uttid2feats.keys())
 
         for uttid in uttids:
             feMat = uttid2feats[uttid]
             frameN = len(feMat)
             featD  = len(feMat[0])
-            outData = ''
+            outData = b''
             for c in uttid + ' ':
-                outData += struct.pack('<c', c)
+                outData += struct.pack('<c', c.encode())
             outData += struct.pack('<c', NULLC)
-            for c in BFM_SYM:
-                outData +=struct.pack('<c', c)
+            for c in BFM_SYM.decode():
+                outData +=struct.pack('<c', c.encode())
             outData += struct.pack('<c', FEAT_BYTE_SIZE)
             outData += struct.pack('<I', frameN)
             outData += struct.pack('<c', FEAT_BYTE_SIZE)
             outData += struct.pack('<I', featD)
             self.arkfp.write(outData)
-            outData = ''
+            outData = b''
             for frameX in range(frameN):
                 for coeff in feMat[frameX]:
-                    outData += struct.pack( '<f', coeff )
-            self.arkfp.write( outData )
+                    outData += struct.pack('<f', coeff)
+            self.arkfp.write(outData)
 
         self.arkfp.flush()
 
@@ -312,21 +331,23 @@ class KaldiIntVectorArkWriter(KaldiArkWriter):
 
     def write(self, uttid2feats, uttids=None):
         if uttids is None:
-            uttids = uttid2feats.keys()
+            uttids = list(uttid2feats.keys())
 
         for uttid in uttids:
             intVec = uttid2feats[uttid]
+            # write data header
             frameN = len(intVec)
-            outData = ''
+            outData = b''
             for c in uttid + ' ':
-                outData += struct.pack('<c', c)
+                outData += struct.pack('<c', c.encode())
             outData += struct.pack('<c', NULLC)
-            for c in BIV_SYM:
-                outData +=struct.pack('<c', c)
+            for c in BIV_SYM.decode():
+                outData +=struct.pack('<c', c.encode())
             outData += struct.pack('<c', FEAT_BYTE_SIZE)
             outData += struct.pack('<I', frameN)
             self.arkfp.write(outData)
-            outData = ''
+            # write actual vector data
+            outData = b''
             for coeff in intVec:
                 outData += struct.pack('<c', FEAT_BYTE_SIZE)
                 outData += struct.pack('<i', coeff)
@@ -339,7 +360,7 @@ def correct_chunk_size(numSamples, riff_header):
     """
     Correct the data length in header information; see http://soundfile.sapp.org/doc/WaveFormat/ for details
     """
-    bytesPerSample = struct.unpack( '<h', riff_header[34:36] )[0] / 8
+    bytesPerSample = struct.unpack( '<h', riff_header[34:36] )[0] // 8
     dataLength = numSamples * bytesPerSample
     totalChunkSize = 36 + dataLength
 
@@ -355,18 +376,18 @@ class KaldiWavArkWriter(KaldiArkWriter):
 
     def write(self, uttid2feats, uttid2headers, uttids=None):
         if uttids is None:
-            uttids = uttid2feats.keys()
+            uttids = list(uttid2feats.keys())
 
         for uttid in uttids:
-            outData = ''
+            outData = b''
             for c in uttid + ' ':
-                outData += struct.pack('<c', c)
+                outData += struct.pack('<c', c.encode())
             self.arkfp.write(outData)
             samples = uttid2feats[uttid]
             # write the corrected header information
             uttid2header = correct_chunk_size(len(samples), uttid2headers[uttid])
             self.arkfp.write(uttid2header)
-            outData = ''
+            outData = b''
             for samp in samples:
                 outData += struct.pack('<h', samp)
             self.arkfp.write(outData)
@@ -377,9 +398,9 @@ class KaldiWavArkWriter(KaldiArkWriter):
         """
         Dump the data in a RIFF file into the wav ark file
         """
-        outData = ''
+        outData = b''
         for c in uttid + ' ':
-            outData += struct.pack('<c', c)
+            outData += struct.pack('<c', c.encode())
         self.arkfp.write(outData)
 
         with open(riff_file, 'rb') as riffF:
@@ -415,9 +436,9 @@ def test():
     writer.open(args.output_ark)
 
     for uttid2data in reader:
-        print('uttid: %s' %uttid2data.keys()[0])
+        print(('uttid: %s' %list(uttid2data.keys())[0]))
         if args.type == 'w':
-            writer.write(uttid2data, {uttid2data.keys()[0]:reader.get_riff_header()})
+            writer.write(uttid2data, {list(uttid2data.keys())[0]:reader.get_riff_header()})
         else:
             writer.write(uttid2data)
 
