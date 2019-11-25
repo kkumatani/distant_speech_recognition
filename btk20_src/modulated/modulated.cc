@@ -581,7 +581,7 @@ const gsl_vector_float* OverSampledDFTSynthesisBank::next(int frame_no)
     printf("The output might not be continuous %s: %d != %d\n",name().c_str(), frame_no - 1, frame_no_);
 
   if( frame_no >= 0 ) {
-    if ( true == update_buffer_( frame_no + 1 + processing_delay_) )
+    if ( true == update_buffer_( frame_no + processing_delay_) )
       throw jiterator_error("end of samples!");
   }
   else {
