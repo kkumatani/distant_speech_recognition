@@ -11,7 +11,7 @@ set(CMAKE_INSTALL_LIBDIR "lib" CACHE STRING
                          "Installation directory for library")
 set(TARGET_PYTHON_VERSION "2.7" CACHE STRING
                           "python version to be used")
-set(PYTHON_SITE_PACKAGES "lib/python${TARGET_PYTHON_VERSION}/site-packages/${PROJECT_NAME}")
+set(PYTHON_SITE_PACKAGES "lib/python${TARGET_PYTHON_VERSION}/dist-packages/${PROJECT_NAME}")
 message(STATUS "Setting installation directory...")
 message(STATUS "   Include: ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}")
 message(STATUS "   Lib:     ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
