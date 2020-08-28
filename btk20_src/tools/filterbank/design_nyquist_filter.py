@@ -8,15 +8,17 @@ Kenichi Kumatani, John McDonough, Stefan Schacht, Dietrich Klakow, Philip N Garn
 .. moduleauthor:: Kenichi Kumatani <k_kumatani@ieee.org>
 """
 import numpy as np
+from   numba import jit
 import os
 import pickle
 
+@jit(nopython=True)
 def mynull(A, num=0, datatype='d'):
     """
     Find a null space projectoin matrix
 
     :param A: matrix
-    :type A: numpy matrix
+    :type A: np matrix
     :param num: number of bases for the null space
     :type num: integer
     :param datatype: 'd' or 's' for tolereance
@@ -29,7 +31,7 @@ def mynull(A, num=0, datatype='d'):
     (rowN, colN) = A.shape
     if num > 0:
         sX = colN - num
-        val  = np.zeros(num, np.float)
+        val  = np.zeros(num, np.float_)
     else:
         if rowN > 1:
             s = np.diag(W)
@@ -51,18 +53,48 @@ def mynull(A, num=0, datatype='d'):
 
     return (y, val)
 
+@jit(nopython=True)
+def create_delA_delC_delb(L_h, M, m, md, A, C, b):
+    delC = np.zeros((L_h - m + 1, L_h - m + 1), np.float_)
+    delA = np.zeros((L_h - m + 1, L_h - m + 1), np.float_)
+    delb = np.zeros((L_h - m + 1, 1),           np.float_)
+    i = 0
+    for k in range(L_h):
+        if k == md or (k % M) != 0:
+            j = 0
+            for l in range(L_h):
+                if l == md or (l % M) != 0:
+                    delA[i][j] = A[k][l]
+                    delC[i][j] = C[k][l]
+                    j += 1
+
+            delb[i] = b[k]
+            i += 1
+    return delA,delC,delb
+
+@jit(nopython=True)
+def create_h(L_h, M, md, rh):
+    h = np.zeros((L_h, 1), np.float_)
+    k = 0
+    for m in range(L_h):
+        if m != md and (m % M) == 0:
+            h[m] = 0
+        else:
+            h[m] = rh[k]
+            k += 1
+    return h
 
 def design_Nyquist_analyasis_filter_prototype(M, m, D, wpW=1):
     """
     Design an analysis filter prototype
 
-    :param M: Number of subbands
-    :type M: integer
-    :param m: Filter length factor
-    :type m: integer
-    :param D: Decimation factor
-    :type D: integer
-    :returns: Coefficients of analysis filter prototype and inband aliasing distortion
+    :param M:   Number of subbands
+    :type M:    integer
+    :param m:   Filter length factor
+    :type m:    integer
+    :param D:   Decimation factor
+    :type D:    integer
+    :returns:   Coefficients of analysis filter prototype and inband aliasing distortion
     """
     L_h   = M * m   # length of the prototype filter
     md    = L_h / 2 if m != 1 else 0 # group delay offset
@@ -93,21 +125,7 @@ def design_Nyquist_analyasis_filter_prototype(M, m, D, wpW=1):
                  )
 
     # delete the rows and columns of C corresponding to the components of h = 0
-    delC = np.zeros((L_h - m + 1, L_h - m + 1), np.float)
-    delA = np.zeros((L_h - m + 1, L_h - m + 1), np.float)
-    delb = np.zeros((L_h - m + 1, 1),           np.float)
-    i = 0
-    for k in range(L_h):
-        if k == md or (k % M) != 0:
-            j = 0
-            for l in range(L_h):
-                if l == md or (l % M) != 0:
-                    delA[i][j] = A[k][l]
-                    delC[i][j] = C[k][l]
-                    j += 1
-
-            delb[i] = b[k]
-            i += 1
+    delA, delC, delb = create_delA_delC_delb(L_h, M, m, md, A, C, b)
 
     rank_delC = np.linalg.matrix_rank(delC)
     if rank_delC == len(delC):
@@ -116,12 +134,9 @@ def design_Nyquist_analyasis_filter_prototype(M, m, D, wpW=1):
         # take eigen vectors as basis
         minX = np.argmin(eVal)
         print('nmin eigen val: {}'.format(eVal[minX]))
-        rh = eVec[:,minX]; # eigen values are sorted in the ascending order.
+        rh = eVec[:,minX] # eigen values are sorted in the ascending order.
         # flip the sign if all the coefficients are negative
-        all_negative = True
-        for val in rh:
-            if val > 0:
-                all_negative = False
+        all_negative = not np.any(rh > 0)
         if all_negative:
             rh = - rh
     else:
@@ -142,14 +157,8 @@ def design_Nyquist_analyasis_filter_prototype(M, m, D, wpW=1):
         rh = np.dot(nulldelC, x)
 
     # re-assemble the complete prototype
-    h = np.zeros((L_h, 1), np.float)
-    k = 0
-    for m in range(L_h):
-        if m != md and (m % M) == 0:
-            h[m] = 0
-        else:
-            h[m] = rh[k]
-            k += 1
+    rh = np.real(rh)
+    h = create_h(L_h, M, md, rh)
 
     # Pass-band error: h' * A * h - 2 * h' * b + 1
     # alpha = np.dot(h.transpose(), np.dot(A, h)) - 2 * np.dot(h.transpose(), b) + 1
@@ -158,6 +167,58 @@ def design_Nyquist_analyasis_filter_prototype(M, m, D, wpW=1):
 
     return (h, beta)
 
+@jit(nopython=True)
+def create_E_f_P(L_g, L_h, M, m, D, tau_t, h):
+    L_max = max(L_g, L_h)
+    E = np.zeros((L_g, L_g), np.float_)
+    f = np.zeros((L_g, 1),   np.float_)
+    P = np.zeros((L_g, L_g), np.float_)
+
+    for i in range(L_g):
+        for j in range(L_g):
+            for k in range(0, 2*m+1):
+                kM = k * M
+                if (kM - i) >= 0 and (kM - j) >= 0 and (kM - i) < L_h and (kM - j) < L_h:
+                    E[i][j] += h[kM-i][0] * h[kM-j][0]
+
+            factor = D - 1 if ((i - j) % D) == 0 else -1
+            for l in range(-L_max, L_max+1):
+                if (l+i) >= 0 and (l+j) >= 0 and (l+i) < L_h and (l+j) < L_h:
+                    P[i][j] += h[l+j][0] * h[l+i][0] * factor
+
+        if (tau_t - i) >= 0 and (tau_t - i) < L_h:
+            f[i] = h[tau_t-i]
+
+    E = ((M * M) / float(D / D)) * E
+    f = (M / (np.pi * D)) * f
+    P = (M / float(D * D)) * P
+
+    return E,f,P
+
+@jit(nopython=True)
+def create_H_C0(rowN, L_g, M, m, D, h):
+    H = np.zeros((rowN, L_g), np.float_)  # a row vector corresponds to h_k in the report
+    sX = M
+    eX = sX - L_g + 1
+    for i in range(rowN):
+        s = sX
+        if s < 1:
+            s = 1
+        elif s > L_g:
+            s = L_g
+        e = eX
+        if e < 1:
+            e = 1
+        elif e > L_g:
+            e = L_g
+        H[i, e - 1:s] = np.array([h[j - 1, 0] for j in range(s, e - 1, -1)])
+        sX += M
+        eX += M
+
+    C0 = np.zeros((rowN, 1), np.float_)
+    C0[m - 1][0] = D * 1.0 / M  # C0(m) = h(md+1)
+
+    return H, C0
 
 def design_Nyquist_synthesis_filter_prototype(h, M, m, D, wpW=1):
     """
@@ -181,58 +242,18 @@ def design_Nyquist_synthesis_filter_prototype(h, M, m, D, wpW=1):
     tau_t = md + tau_g # total filterbank delay
     w_p   = np.pi / (wpW * M)  # cut-off frequency
 
-    E = np.zeros((L_g, L_g), np.float)
-    f = np.zeros((L_g, 1),   np.float)
-    P = np.zeros((L_g, L_g), np.float)
-
-    for i in range(L_g):
-        for j in range(L_g):
-            for k in range(0, 2*m+1):
-                kM = k * M
-                if (kM - i) >= 0 and (kM - j) >= 0 and (kM - i) < L_h and (kM - j) < L_h:
-                    E[i][j] += h[kM-i][0] * h[kM-j][0]
-
-            factor = D - 1 if ((i - j) % D) == 0 else -1
-            for l in range(-L_max, L_max+1):
-                if (l+i) >= 0 and (l+j) >= 0 and (l+i) < L_h and (l+j) < L_h:
-                    P[i][j] += h[l+j][0] * h[l+i][0] * factor
-
-        if (tau_t - i) >= 0 and (tau_t - i) < L_h:
-            f[i] = h[tau_t-i][0]
-
-    E = ((M * M) / float(D / D)) * E
-    f = (M / (np.pi * D)) * f
-    P = (M / float(D * D)) * P
+    E,f,P = create_E_f_P(L_g, L_h, M, m, D, int(tau_t), h)
 
     # Shift a time-reversed version of h and make a matrix.
     # The k-th row of the matrix indicates h_k
-    rowN = 2 * m - 1;
-    H  = np.zeros((rowN, L_g), np.float ) # a row vector corresponds to h_k in the report
-    sX = M
-    eX = sX - L_g + 1
-    for i in range(rowN):
-        s = sX;
-        if s < 1:
-            s = 1
-        elif s > L_g:
-            s = L_g
-        e = eX;
-        if e < 1:
-            e = 1
-        elif e > L_g:
-            e = L_g
-        H[i, e-1:s] = np.array([h[j-1, 0] for j in range(s,e-1,-1)])
-        sX += M
-        eX += M
-
-    C0 = np.zeros((rowN, 1), np.float)
-    C0[m-1][0] = D * 1.0 / M # C0(m) = h(md+1);
+    rowN = 2 * m - 1
+    H, C0 = create_H_C0(rowN, L_g, M, m, D, h)
 
     sizeP = len(P)
-    rank_P = np.linalg.matrix_rank(P);
+    rank_P = np.linalg.matrix_rank(P)
     if rank_P == sizeP:
         print('Use Lagrange multiplier...')
-        invP = np.linalg.inv( P );
+        invP = np.linalg.inv( P )
         H_invP_HT = np.dot(np.dot(H, invP), H.transpose())
         g = np.dot(np.dot(np.dot(invP, H.transpose()), np.linalg.inv(H_invP_HT)), C0)
     elif rank_P <= (sizeP - rowN):
@@ -244,7 +265,7 @@ def design_Nyquist_synthesis_filter_prototype(h, M, m, D, wpW=1):
     else:
         # will not find enough bases of the null space
         print('Use SVD (rank(P)=%d)...' %rank_P)
-        [UP,WP,VP] = np.linalg.svd( P );
+        [UP,WP,VP] = np.linalg.svd( P )
         pnullP = VP[:,(sizeP-rowN):sizeP]
         y = np.linalg.solve(np.dot(H, pnullP), C0)
         g = np.dot(pnullP, y)
