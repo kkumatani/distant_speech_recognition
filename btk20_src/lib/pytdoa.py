@@ -519,7 +519,7 @@ class FarfieldCircularArrayTDOAFeatureVector(TDOAFeatureVector):
         """
         Obtain a position estimate (without trajectory information)
 
-        :returns: position vector [azimuth, polar angle]
+        :returns: position vector [polar angle, azimuth]
         """
         P = [] # relative position matrix: each row vector representing a sensor position
         D = [] # time delay vector: each row containing a time delay
@@ -587,7 +587,7 @@ class FarfieldCircularArrayTDOAFeatureVector(TDOAFeatureVector):
                 return numpy.array([-1e10, -1e10])
             phi = numpy.arccos(sum_cos_phi / num_valid_solutions)
 
-        return numpy.array([phi, theta])
+        return numpy.array([theta, phi])
 
 
 def make_tdoa_front_end(array_type, pair_ids, spec_sources, fftlen, samplerate, mpos, energy_threshold, minimum_pairs, threshold, sspeed = 343000.0):
